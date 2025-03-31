@@ -4,7 +4,7 @@ build/
 .env
 
 #Data source 
-Data_source/
+data_source/
 
 # Python
 walmart_EDA/*
