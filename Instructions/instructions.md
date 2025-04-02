@@ -11,7 +11,7 @@ This project simulates a simplified Walmart-like E-commerce platform from end-to
 - Use Airflow to orchestrate the entire pipeline at a daily interval.
 
 Initial techstack is:
-- Frontend: Javascript, React, tailwind, Next.js, Lucid icon
+- Frontend: Javascript, React, tailwind, Next.js, Lucide icon
 - Testing: Jest
 - Backend: NodeJS, Python, dbt
 - Database: Postgresql
