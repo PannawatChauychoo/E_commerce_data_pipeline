@@ -13,7 +13,7 @@ const Header = () => {
   ];
 
   return (
-    <header style={{ backgroundColor: '#3C3D37' }} className="shadow-md sticky top-0 z-50 w-full">
+    <header className="bg-gray-800 shadow-md sticky top-0 z-50 w-full">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between text-white">
         <div className="text-xl font-bold text-white">
           <a 
