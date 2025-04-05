@@ -6,7 +6,18 @@ from typing import Dict, List, Optional
 import logging
 from sklearn.cluster import KMeans
 from collections import defaultdict
+from dateutil.parser import parse
+from datetime import datetime
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('data_processing.log'),
+        logging.StreamHandler()
+    ]
+)
 
 class DistributionAnalyzer:
     """
@@ -22,53 +33,86 @@ class DistributionAnalyzer:
         self.data = data
         self.kde_cluster_cols: Dict[int, Dict[str, gaussian_kde]] = defaultdict(lambda: defaultdict(dict))
         self.cat_dist_cluster_cols: Dict[int, Dict[str, Dict[str, float]]] = defaultdict(lambda: defaultdict(dict))
-        self.logger = logging.getLogger(__name__) 
         self.cat_cols = []
         self.num_cols = []
+        self.id_cols = []
+        self.datetime_cols = []
+        self.logger = logging.getLogger(__name__)
+        self.logger.info("DistributionAnalyzer initialized with data shape: %s", data.shape)
 
-    def process_categorical_data(self, cutoff: int = 20, id_list: list[str] = ['sku', 'id']) -> pd.DataFrame:
+    def _is_date(self, value: str) -> bool:
+        """Check if a string can be parsed as a date."""
+        try:
+            parse(value, fuzzy=True)
+            return True
+        except (ValueError, TypeError):
+            return False
+
+    def process_data(self, cutoff: float = 50, id_list: list[str] = ['sku', 'id']) -> pd.DataFrame:
         """
-        Process categorical data with one hot encoding. Prepare for clustering.
+        Process data with one hot encoding. Prepare for clustering.
         
         Args:
             cutoff: Minimum number of occurrences for a category to be considered
+            id_list: List of substrings to identify ID columns
+            
         Returns:
-            pd.DataFrame with one hot encoded categorical data
+            pd.DataFrame with processed data
         """
-        
-        cat_cols = []
-        num_cols = []
-        
+        self.logger.info("Starting data processing with cutoff: %s", cutoff)
+        cat_cols: list[str] = []
+        num_cols: list[str] = []
+        id_cols: list[str] = []
+        datetime_cols: list[str] = []
+
         for i in self.data.columns:
-            # drop id columns
             col = str(i).lower()
             id = False
-            for substring in id_list:
-                if substring in col:
-                    self.data.drop(columns=i, axis = 1,inplace=True)
-                    id = True
             
+            # Check for ID columns
+            if any(word in col for word in id_list) or self.data[i].nunique() == len(self.data):
+                id_cols.append(i)
+                id = True
+                self.logger.debug("Identified ID column: %s", i)
+
             if id:
-                continue    
-                
-            # check if column contains text/mixed data
-            if pd.api.types.is_string_dtype(self.data[i]):
-                try:
-                    # try converting to numeric - if it fails, it's categorical
-                    pd.to_numeric(self.data[i])
-                    num_cols.append(i)
-                except:
-                    cat_cols.append(i)
-                    self.data[i] = self.data[i].astype('category')
-                    
-        print(f'categorical columns are: {cat_cols}')
-        print(f'numerical columns are: {num_cols}')
-        
-        # One-hot encode the categorical columns
-        encoded_df = pd.get_dummies(self.data, columns=cat_cols, drop_first=True, dtype=int)   
+                continue
+
+            # Check for datetime columns
+            if self.data[i].dtype == 'object':
+                sample_size = min(100, len(self.data[i]))
+                date_count = sum(self._is_date(str(x)) for x in self.data[i].head(sample_size))
+                if date_count / sample_size > 0.8:  # If 80% of samples are dates
+                    if '-' in self.data[i][0] or ':' in self.data[i][0]:
+                        datetime_cols.append(i)
+                        self.logger.debug("Added datetime column: %s", i)
+                        continue
+                    else:
+                        cat_cols.append(i)
+                        self.logger.debug("Added singledatetime column as categorical: %s", i)
+                        continue
+
+            # Check for categorical or numerical columns
+            if self.data[i].nunique() <= cutoff:
+                cat_cols.append(i)
+                self.logger.debug("Added categorical column: %s", i)
+            else:
+                num_cols.append(i)
+                self.logger.debug("Added numerical column: %s", i)
+
+        self.logger.info("Found: \n %s as categorical columns, \n %s as numerical columns, \n %s as ID columns, \n %s as datetime columns", 
+                        cat_cols, num_cols, id_cols, datetime_cols)
+
+        assert len(cat_cols+num_cols+id_cols+datetime_cols) == len(self.data.columns), \
+            f'Some columns are missing. Original: {len(self.data.columns)}, Final: {len(cat_cols+num_cols+id_cols+datetime_cols)}'
+
         self.cat_cols = cat_cols
         self.num_cols = num_cols
-        
+        self.id_cols = id_cols
+        self.datetime_cols = datetime_cols
+
+        # One-hot encode categorical columns
+        encoded_df = pd.get_dummies(self.data, columns=cat_cols, dtype=int)
         return encoded_df
         
         
@@ -79,6 +123,7 @@ class DistributionAnalyzer:
         """
         Cluster the data using KMeans. Maybe can change to other clustering methods.
         """
+        drop_columns = drop_columns + self.datetime_cols + self.id_cols
         if drop_columns:
             encoded_df = encoded_df.drop(columns=drop_columns, axis = 1)
         kmeans = KMeans(n_clusters=n_clusters, random_state=42)
@@ -103,13 +148,15 @@ class DistributionAnalyzer:
         Returns:
             Fitted KDE model
         """
-        print(f'Fitting KDE for column {column} for cluster {cluster_num}...')
+        self.logger.info("Fitting KDE for column %s in cluster %d", column, cluster_num)
         if column not in self.data.columns:
+            self.logger.error("Column %s not found in data", column)
             raise ValueError(f"Column {column} not found in data")
             
         data = np.array(cluster_df[column].dropna().values)
         kde = gaussian_kde(data)
         self.kde_cluster_cols[cluster_num][column] = kde
+        self.logger.debug("KDE fitted successfully for column %s", column)
         
         if plot:
             self._plot_kde(data, kde, column)
@@ -151,7 +198,7 @@ class DistributionAnalyzer:
         """
         Get the frequency distribution of a categoricalcolumn.
         """
-        print(f'Getting all categorical distribution for cluster {cluster_num}...')
+        self.logger.info("Getting all categorical distribution for cluster %d", cluster_num)
         #Getting only the categorical cols
         cat_only_df = cluster_df.drop(columns=self.num_cols, axis = 1)
         cat_dist = cat_only_df.sum()/len(cat_only_df)
@@ -160,13 +207,9 @@ class DistributionAnalyzer:
         for col in self.cat_cols:
             dist = cat_dist[cat_dist.index.str.contains(col)]
             
-            cum_prob = 0
             for index, value in dist.items():
-                index_num = str(index).split('_')[-1]
-                self.cat_dist_cluster_cols[cluster_num][col][index_num] = value
-                cum_prob += value
-            self.cat_dist_cluster_cols[cluster_num][col]['Remaining'] = 1-cum_prob
-        
+                categories = str(index).split('_')[-1]
+                self.cat_dist_cluster_cols[cluster_num][col][categories] = value
         return self.cat_dist_cluster_cols
     
     
@@ -178,7 +221,7 @@ class DistributionAnalyzer:
         Args:
             encoded_df: Encoded dataframe with cluster labels
         """
-        print('Analyzing customer segments...')
+        self.logger.info("Analyzing customer segments...")
         unique_clusters = encoded_df['cluster'].unique()
         cluster_prob = {}
         for num in unique_clusters:
@@ -235,27 +278,33 @@ class DistributionAnalyzer:
         return pd.DataFrame(synthetic_data, columns=columns)
 
 def main():
-    # Read data from csv
-    data = pd.read_csv('../data_source/Walmart_cust.csv')
-    print(data.info())
+    # Configure logging for main
+    logger = logging.getLogger(__name__)
+    logger.info("Starting data processing pipeline")
     
-    # Initialize processor
-    processor = DistributionAnalyzer(data)
-    processed_data = processor.process_categorical_data()
-    print(processor.cat_cols)
-    print(processor.num_cols)
-    cluster_data = processor.cluster_data_kmeans(processed_data)
-    cluster_probs = processor.analyze_customer_segments_col_dist(cluster_data)
-    
-    # Generate synthetic data
-    synthetic_df = processor.generate_synthetic_data(cluster_probs, size=50)
-    
-    # Print sample of original vs synthetic
-    print("\nOriginal Data Sample:")
-    print(data.head())
-    print("\nSynthetic Data Sample:") 
-    print(synthetic_df.head())
+    try:
+        # Read data from csv
+        data = pd.read_csv('../data_source/Walmart_commerce.csv', index_col=0)
+        logger.info(f"Data loaded successfully. Info: {data.info()}")        
+        
+        # Initialize processor
+        processor = DistributionAnalyzer(data)
+        processed_data = processor.process_data()
+        logger.info("Categorical data processing completed")
+        
+        cluster_data = processor.cluster_data_kmeans(processed_data)
+        logger.info("Clustering completed. Found %d clusters", len(cluster_data['cluster'].unique()))
+        
+        cluster_probs = processor.analyze_customer_segments_col_dist(cluster_data)
+        logger.info("Customer segment analysis completed")
+        
+        # Generate synthetic data
+        synthetic_df = processor.generate_synthetic_data(cluster_probs, size=50)
+        logger.info("Synthetic data generation completed. Generated %d samples", len(synthetic_df))
+        
+    except Exception as e:
+        logger.error("Error in data processing pipeline: %s", str(e), exc_info=True)
+        raise
 
-   
 if __name__ == "__main__":
     main() 
