@@ -1,9 +1,10 @@
 import os
 import pandas as pd
-from walmart_model import WalmartModel
 import matplotlib.pyplot as plt
+import seaborn as sns
+from walmart_model import WalmartModel
 
-def run_simulation(num_steps=100, num_customers=100, num_products=50):
+def run_simulation(num_steps=100, num_customers=100, num_products=50, data_path="../data_source/Walmart_commerce.csv"):
     """
     Run the Walmart simulation for a specified number of steps.
     
@@ -11,17 +12,24 @@ def run_simulation(num_steps=100, num_customers=100, num_products=50):
         num_steps: Number of simulation steps to run
         num_customers: Number of customer agents
         num_products: Number of product agents
+        data_path: Path to customer data CSV file
         
     Returns:
         model: The simulation model after running
     """
     # Create and run the model
-    model = WalmartModel(num_customers=num_customers, num_products=num_products)
+    model = WalmartModel(
+        num_customers=num_customers,
+        num_products=num_products,
+        data_path=data_path
+    )
     
     for i in range(num_steps):
         model.step()
         if i % 10 == 0:
-            print(f"Step {i}: Total Sales = {model.datacollector.model_vars['Total_Sales'][-1]}")
+            print(f"Step {i}:")
+            print(f"  Total Sales = {model.datacollector.model_vars['Total_Sales'][-1]}")
+            print(f"  Average Basket Size = {model.datacollector.model_vars['Average_Basket_Size'][-1]:.2f}")
     
     return model
 
@@ -58,6 +66,7 @@ def export_data(model, output_dir="../data_source"):
             for purchase in agent.purchase_history:
                 transactions.append({
                     'customer_id': agent.unique_id,
+                    'customer_cluster': agent.attributes.get('cluster', -1),
                     'product_id': purchase['product_id'],
                     'quantity': purchase['quantity'],
                     'price': purchase['price'],
@@ -91,23 +100,26 @@ def plot_results(model):
     axs[0, 0].set_xlabel('Step')
     axs[0, 0].set_ylabel('Total Sales')
     
-    # Plot customer count over time
-    axs[0, 1].plot(model_data.index, model_data['Customer_Count'])
-    axs[0, 1].set_title('Customer Count Over Time')
+    # Plot average basket size over time
+    axs[0, 1].plot(model_data.index, model_data['Average_Basket_Size'])
+    axs[0, 1].set_title('Average Basket Size Over Time')
     axs[0, 1].set_xlabel('Step')
-    axs[0, 1].set_ylabel('Count')
+    axs[0, 1].set_ylabel('Items per Basket')
     
-    # Plot product count over time
-    axs[1, 0].plot(model_data.index, model_data['Product_Count'])
-    axs[1, 0].set_title('Product Count Over Time')
-    axs[1, 0].set_xlabel('Step')
-    axs[1, 0].set_ylabel('Count')
+    # Plot category distribution
+    category_data = pd.DataFrame(model_data['Category_Distribution'].tolist())
+    category_data.plot(kind='bar', ax=axs[1, 0])
+    axs[1, 0].set_title('Sales by Category')
+    axs[1, 0].set_xlabel('Category')
+    axs[1, 0].set_ylabel('Total Sales')
     
-    # Plot sales per customer
-    axs[1, 1].hist([agent.sales for agent in model.schedule.agents if agent.type == "Customer"], bins=20)
-    axs[1, 1].set_title('Distribution of Customer Sales')
-    axs[1, 1].set_xlabel('Sales')
-    axs[1, 1].set_ylabel('Frequency')
+    # Plot customer cluster distribution
+    agent_data = model.datacollector.get_agent_vars_dataframe()
+    customer_data = agent_data[agent_data['Type'] == 'Customer']
+    sns.histplot(data=customer_data, x='Cluster', ax=axs[1, 1])
+    axs[1, 1].set_title('Customer Cluster Distribution')
+    axs[1, 1].set_xlabel('Cluster')
+    axs[1, 1].set_ylabel('Count')
     
     plt.tight_layout()
     plt.savefig("../data_source/simulation_results.png")
@@ -115,7 +127,12 @@ def plot_results(model):
 
 if __name__ == "__main__":
     # Run simulation
-    model = run_simulation(num_steps=100, num_customers=100, num_products=50)
+    model = run_simulation(
+        num_steps=100,
+        num_customers=100,
+        num_products=50,
+        data_path="../data_source/Walmart_commerce.csv"
+    )
     
     # Export data
     export_data(model)

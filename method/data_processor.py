@@ -48,7 +48,7 @@ class DistributionAnalyzer:
         except (ValueError, TypeError):
             return False
 
-    def process_data(self, cutoff: float = 50, id_list: list[str] = ['sku', 'id']) -> pd.DataFrame:
+    def process_dataset(self, cutoff: float = 50, id_list: list[str] = ['sku', 'id']) -> pd.DataFrame:
         """
         Process data with one hot encoding. Prepare for clustering.
         
@@ -117,9 +117,9 @@ class DistributionAnalyzer:
         
         
     def cluster_data_kmeans(self, 
-                     encoded_df: pd.DataFrame, 
-                     n_clusters: int = 15, 
-                     drop_columns: list[str] = []) -> pd.DataFrame:
+                            encoded_df: pd.DataFrame, 
+                            n_clusters: int = 15, 
+                            drop_columns: list[str] = []) -> pd.DataFrame:
         """
         Cluster the data using KMeans. Maybe can change to other clustering methods.
         """
@@ -196,7 +196,7 @@ class DistributionAnalyzer:
                                    cluster_df: pd.DataFrame, 
                                    cluster_num: int):
         """
-        Get the frequency distribution of a categoricalcolumn.
+        Get the frequency distribution of a categorical column.
         """
         self.logger.info("Getting all categorical distribution for cluster %d", cluster_num)
         #Getting only the categorical cols
@@ -213,7 +213,7 @@ class DistributionAnalyzer:
         return self.cat_dist_cluster_cols
     
     
-    def analyze_customer_segments_col_dist(self, 
+    def analyze_segments_col_dist(self, 
                                 encoded_df: pd.DataFrame):
         """
         Analyze distributions of categorical and numerical columns for each customer.
@@ -289,13 +289,13 @@ def main():
         
         # Initialize processor
         processor = DistributionAnalyzer(data)
-        processed_data = processor.process_data()
+        processed_data = processor.process_dataset()
         logger.info("Categorical data processing completed")
         
         cluster_data = processor.cluster_data_kmeans(processed_data)
         logger.info("Clustering completed. Found %d clusters", len(cluster_data['cluster'].unique()))
         
-        cluster_probs = processor.analyze_customer_segments_col_dist(cluster_data)
+        cluster_probs = processor.analyze_segments_col_dist(cluster_data)
         logger.info("Customer segment analysis completed")
         
         # Generate synthetic data
