@@ -10,6 +10,7 @@ from dateutil.parser import parse
 from datetime import datetime
 import os
 import json
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -21,9 +22,7 @@ logging.basicConfig(
 )
 
 class DistributionAnalyzer:
-    """
-    Analyzes customer data using Kernel Density Estimation.
-    """
+
     def __init__(self, data: pd.DataFrame):
         """
         Initialize with customer data.
@@ -137,7 +136,6 @@ class DistributionAnalyzer:
         # One-hot encode categorical columns
         encoded_df = pd.get_dummies(self.data, columns=cat_cols, dtype=int)
         return encoded_df
-        
         
     def cluster_data_kmeans(self, 
                             encoded_df: pd.DataFrame, 
@@ -262,7 +260,6 @@ class DistributionAnalyzer:
                 self.cat_dist_cluster_cols[cluster_num][col][categories] = value
         return self.cat_dist_cluster_cols
 
-    
     def analyze_segments_col_dist(self, 
                                 encoded_df: pd.DataFrame):
         """
@@ -272,23 +269,27 @@ class DistributionAnalyzer:
             encoded_df: Encoded dataframe with cluster labels
         """
         unique_clusters = encoded_df['cluster'].unique()
-        cluster_prob = {}
+        cluster_all_dist = defaultdict(list)
+        
         for num in unique_clusters:
             cluster_df = encoded_df[encoded_df['cluster'] == num]
+            
             if len(cluster_df) <= 2:
                 self.logger.info("Cluster %d has less than 2 samples. Skipping...", num)
                 continue
             else:
                 self.logger.info("Analyzing cluster %d with %d samples", num, len(cluster_df))
                 
-            cluster_prob[num] = len(cluster_df)/len(encoded_df)
+            cluster_all_dist[num].append(len(cluster_df)/len(encoded_df))
             #Getting cat dist
             self.get_frequency_distribution(cluster_df, num)
+            cluster_all_dist[num].append(self.cat_dist_cluster_cols[num])
             #Getting num dist
             for col in self.num_cols:
                 self.fit_kde(col, cluster_df, num)
+            cluster_all_dist[num].append(self.kde_cluster_cols[num])
                 
-        return cluster_prob, self.cat_dist_cluster_cols, self.kde_cluster_cols
+        return cluster_all_dist
         
     def generate_synthetic_data(self, 
                                 cluster_prob: Dict[int, float],
@@ -329,72 +330,42 @@ class DistributionAnalyzer:
                 num_values.append(samples)
             
             synthetic_data.append(cat_values + num_values)
-            
+        
+        
         return pd.DataFrame(synthetic_data, columns=columns)
 
-def getting_data_source_files(folder_path: str) -> list[str]:
+def get_dataset_distribution(data_file_path: str):
     """
-    Get all csv files in the folder and return a list of dataframes
+    Get the distribution of a dataset.
     """
-    file_paths = []
-    for root, dirs, files in os.walk(folder_path):
-        for file in files:
-            if file.endswith('.csv'):
-                file_paths.append(os.path.join(root, file))
-    return file_paths
-
-
-
-def main():
     # Configure logging for main
     logger = logging.getLogger(__name__)
     logger.info("Starting data processing pipeline")
     
-    data_source_files = getting_data_source_files("/Users/macos/Personal_projects/Portfolio/Project_1_Walmart/Walmart_sim/data_source")
-    final_analysis_results = []
-    
-    for file in data_source_files:
-        try:
-            # Read data from csv
-            name = file.split('/')[-1]
-            data = pd.read_csv(file, index_col=0)
-            logger.info(f"Data from {name} loaded successfully.")        
-            
-            # Initialize processor
-            processor = DistributionAnalyzer(data)
-            processed_data = processor.process_dataset()
-            logger.info(f"Categorical data processing completed for {name}")
-            
-            cluster_data = processor.cluster_data_kmeans(processed_data)
-            logger.info(f"Clustering completed. Found {len(cluster_data['cluster'].unique())} clusters for {name}")
-            
-            cluster_probs, cat_dist, kde = processor.analyze_segments_col_dist(cluster_data)
 
-            analysis_results = defaultdict(lambda: defaultdict(dict))
-            for cluster_id in cluster_probs.keys():
-                analysis_results[name][int(cluster_id)] = {
-                    "cluster_prob": cluster_probs[cluster_id],
-                    "cat_dist": cat_dist[cluster_id],
-                    "kde_dist": kde[cluster_id]
-                }
-
-            final_analysis_results.append(analysis_results)
-            logger.info(f"Customer segment analysis completed for {name}")
-            
-            # # Generate synthetic data
-            # synthetic_df = processor.generate_synthetic_data(cluster_probs, size=50)
-            # logger.info("Synthetic data generation completed. Generated %d samples", len(synthetic_df))
-            
-            # # Save synthetic data
-            # synthetic_df.to_csv(f'../data_source/synthetic_data/{name}')
-            # logger.info(f"Synthetic data from {name} saved successfully.")
-            
-        except Exception as e:
-            logger.error("Error in data processing pipeline: %s", str(e), exc_info=True)
-            raise
+    try:
+        # Read data from csv
+        name = data_file_path.split('/')[-1]
+        data = pd.read_csv(data_file_path, index_col=0)
+        col_names = data.columns
+        logger.info(f"Data from {name} loaded successfully.")        
         
-    with open(f'/Users/macos/Personal_projects/Portfolio/Project_1_Walmart/Walmart_sim/method/result.json', 'w') as f:
-        json.dump(final_analysis_results, f, indent=4)
-
-if __name__ == "__main__":
-    main() 
+        # Initialize processor
+        processor = DistributionAnalyzer(data)
+        processed_data = processor.process_dataset()
+        logger.info(f"Categorical data processing completed for {name}")
+        
+        cluster_data = processor.cluster_data_kmeans(processed_data)
+        logger.info(f"Clustering completed. Found {len(cluster_data['cluster'].unique())} clusters for {name}")
+        
+        all_cluster_dist = processor.analyze_segments_col_dist(cluster_data)
+        logger.info(f"Customer segment analysis completed for {name}")
+        
+        return all_cluster_dist, col_names
+    
+    except Exception as e:
+        logger.error("Error in data processing pipeline: %s", str(e), exc_info=True)
+        raise
+    
+    # with open(f'/Users/macos/Personal_projects/Portfolio/Project_1_Walmart/Walmart_sim/method/result.json', 'w') as f:
+    #     json.dump(final_analysis_results, f, indent=4)
