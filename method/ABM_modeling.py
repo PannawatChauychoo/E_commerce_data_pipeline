@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 from collections import defaultdict
 import datetime
+import pickle
 
 """
 Product table:
@@ -254,7 +255,7 @@ def getting_segments_dist(path):
                                     ]}
     """
     
-    customer_segments_dist = dp.get_dataset_distribution(path)
+    customer_segments_dist, col = dp.get_dataset_distribution(path)
     segments_dist = {int(k): v[0] for k,v in customer_segments_dist.items()}
     segments_cat_dist = {int(k): v[1] for k,v in customer_segments_dist.items()}
     segments_num_dist = {int(k): v[2] for k,v in customer_segments_dist.items()}
@@ -266,8 +267,6 @@ def getting_segments_dist(path):
 
 
 segments_dist, segments_cat_dist, segments_num_dist = getting_segments_dist("/Users/macos/Personal_projects/Portfolio/Project_1_Walmart/Walmart_sim/data_source/Walmart_commerce.csv")
-print(segments_cat_dist[0])
-print(segments_num_dist[0])
 
 
 
@@ -276,18 +275,17 @@ class Product(Agent):
     Contains:
         item dict: {cat: kde final price,...} - Final price = Discounted price * quantity
         
-        
     """
     
-    def __init__(self, product_id:int, product_category:dict, 
-                 unit_price:int, avg_rating:float, avg_quantity_dist:dict):
+    def __init__(self, product_id:int, product_category:str, 
+                 unit_price_dist:float, avg_quantity_dist:float):
         
         self.product_id = product_id 
         self.product_category = product_category
-        self.unit_price = unit_price
-        self.avg_rating = avg_rating
-        
-        self.annual_demand = avg_quantity_dist[product_category].resample(1) #Assuming avg_quantity_dist = {category_name: avg quantiy kde,...}
+        self.unit_price_dist = unit_price_dist
+        self.annual_demand = avg_quantity_dist
+
+            
         self.lead_days = np.random.normal(7,2,1)
         self.ordering_cost = np.random.normal(20,5,1)
         self.holding_cost_per_unit = np.random.normal(0.10, 0.02, 1)
@@ -332,14 +330,54 @@ class Product(Agent):
             self.restock()
 
             self.daily_sales = 0
-    
 
+#Building the customer agents
+
+
+#Building the product agents
+with open('data_source/category_kde_distributions.pkl', 'rb') as f:
+    kde_distributions = pickle.load(f)
+
+def sample_from_distribution(dist, dist_type, n_samples=1):
+    if dist_type == 'kde':
+        samples = dist.resample(n_samples)
+    else:  # normal distribution
+        samples = dist.rvs(n_samples)
     
-        
-        
-        
-        
-        
+    # Ensure positive values
+    if dist_type == 'kde':
+        return max(samples[0], 0.01)  # Minimum price of 0.01
+    else:
+        return max(samples[0], 1)  # Minimum quantity of 1
+
+# Create product instances
+n = 0
+item_dict = {}
+for category, dist in kde_distributions.items():
+    # Sample price
+    price = sample_from_distribution(dist['price_kde'], dist['price_dist_type'])
+    
+    # Sample quantity
+    quantity = sample_from_distribution(dist['quantity_kde'], dist['quantity_dist_type'])
+    
+    # Create product instance
+    item_dict[n] = Product(
+        product_id=n, 
+        product_category=category,
+        unit_price_dist=price,
+        avg_quantity_dist=quantity
+    )
+    n += 1
+
+# Print first few items to verify
+print("\nFirst 3 product instances:")
+for i in range(min(3, len(item_dict))):
+    print(f"Product {i}:")
+    print(f"  Category: {item_dict[i].product_category}")
+    print(f"  Unit Price: {item_dict[i].unit_price_dist:.2f}")
+    print(f"  Annual Demand: {item_dict[i].annual_demand:.2f}")
+    print()
+
         
         
         

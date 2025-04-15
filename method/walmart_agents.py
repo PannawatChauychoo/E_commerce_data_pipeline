@@ -2,6 +2,21 @@ from mesa import Agent
 import random
 from typing import Dict, Any
 
+"""
+Requirements:
+- Customer agent:
+    - Makes purchases based on learned behaviors and preferences.
+    - Has a budget and last purchase date.
+    - Can make purchases if it's time to do so based on learned frequency.
+    - Selects products based on learned preferences.
+    - Makes purchases within budget.
+
+- Product agent:
+    - Has a name, category, price, and inventory.
+    - Can be purchased by customers.
+    - Has a popularity score that increases with each purchase.
+"""
+
 class Customer(Agent):
     """
     A customer agent that makes purchases based on learned behaviors and preferences.
@@ -33,7 +48,7 @@ class Customer(Agent):
             
         # Get available products
         available_products = [agent for agent in self.model.schedule.agents 
-                            if agent.type == "Product" and agent.inventory > 0]
+                                        if agent.type == "Product" and agent.inventory > 0]
         
         if not available_products:
             return

@@ -31,7 +31,7 @@ class DistributionAnalyzer:
             data: DataFrame containing customer data
         """
         self.data = data
-        self.kde_cluster_cols: Dict[int, Dict[str, Dict[str, float]]] = defaultdict(lambda: defaultdict(dict))  #{1: {'rating': {kernel:gaussian, pdf_values:...},...},...}
+        self.kde_cluster_cols: Dict[int, Dict[str, gaussian_kde]] = defaultdict(dict)  #{1: {'rating': {kernel:gaussian, pdf_values:...},...},...}
         self.cat_dist_cluster_cols: Dict[int, Dict[str, Dict[str, float]]] = defaultdict(lambda: defaultdict(dict))  #{1: {'occupation': {1: 0.25, 2:0.27,...,10:0.18},...},...}
         self.cat_cols = []
         self.num_cols = []
@@ -155,34 +155,6 @@ class DistributionAnalyzer:
         
         return encoded_df
     
-    def extract_kde_params(self, kde: gaussian_kde, data: np.ndarray) -> dict:
-        x_grid = np.linspace(data.min(), data.max(), 100)
-        pdf_values = kde(x_grid)
-        bandwidth = kde.covariance_factor()
-
-        kde_dict = {
-            "kernel": "gaussian",
-            "bandwidth": bandwidth,
-            "x_grid": x_grid.tolist(),      # Convert NumPy arrays to lists
-            "pdf_values": pdf_values.tolist()
-        }
-        
-        return kde_dict
-
-    def reconstruct_kde_resample(self, 
-                        kde_params: dict, 
-                        n_samples: int = 1000) -> np.ndarray:
-        """
-        Reconstruct a KDE model from its parameters.
-        """
-        x_grid = np.array(kde_params['x_grid'])
-        pdf_values = np.array(kde_params['pdf_values'])
-        pdf_values = pdf_values / pdf_values.sum() #Normalize the pdf values
-        cdf_values = np.cumsum(pdf_values) #Cumulative distribution function
-        uniform_values = np.random.rand(n_samples) #Generate uniform random numbers
-        indices = np.searchsorted(cdf_values, uniform_values, side='right') #Find the indices of the random numbers in the cdf
-        return x_grid[indices]
-    
     def fit_kde(self, 
                 column: str, 
                 cluster_df: pd.DataFrame,
@@ -202,8 +174,7 @@ class DistributionAnalyzer:
 
         data = np.array(cluster_df[column].dropna().values)
         kde = gaussian_kde(data)
-        kde_params = self.extract_kde_params(kde, data)
-        self.kde_cluster_cols[cluster_num][column] = kde_params
+        self.kde_cluster_cols[cluster_num][column] = kde
         self.logger.debug("KDE fitted successfully for column %s", column)
         
         if plot:
@@ -326,7 +297,7 @@ class DistributionAnalyzer:
             num_values = []
             for col in self.num_cols:
                 kde = self.kde_cluster_cols[cluster_id][col]
-                samples = self.reconstruct_kde_resample(kde, 1)
+                samples = kde.resample(1)
                 num_values.append(samples)
             
             synthetic_data.append(cat_values + num_values)
