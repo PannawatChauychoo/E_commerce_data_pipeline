@@ -339,21 +339,35 @@ with open('data_source/category_kde_distributions.pkl', 'rb') as f:
     kde_distributions = pickle.load(f)
 
 def sample_from_distribution(dist, dist_type, n_samples=1):
-    if dist_type == 'kde':
-        samples = dist.resample(n_samples)
-    else:  # normal distribution
-        samples = dist.rvs(n_samples)
-    
-    # Ensure positive values
-    if dist_type == 'kde':
-        return max(samples[0], 0.01)  # Minimum price of 0.01
-    else:
-        return max(samples[0], 1)  # Minimum quantity of 1
+    try:
+        if dist_type == 'kde':
+            samples = dist.resample(size=n_samples)[0]
+        else:  # normal distribution
+            print(f"\nSampling from normal distribution:")
+            print(f"Distribution parameters: loc={dist.kwds.get('loc', 0)}, scale={dist.kwds.get('scale', 1)}")
+            samples = dist.rvs(size=n_samples)
+            print(f"Generated samples: {samples}")
+        
+        # Ensure positive values
+        if dist_type == 'kde':
+            return max(samples[0], 0.01)  # Minimum price of 0.01
+        else:
+            return max(samples[0], 1)  # Minimum quantity of 1
+    except Exception as e:
+        print(f"\nError sampling from distribution:")
+        print(f"Distribution type: {dist_type}")
+        print(f"Distribution object: {dist}")
+        print(f"Error: {str(e)}")
+        raise
 
 # Create product instances
 n = 0
 item_dict = {}
 for category, dist in kde_distributions.items():
+    print(f"\nProcessing category: {category}")
+    print(f"Price distribution type: {dist['price_dist_type']}")
+    print(f"Quantity distribution type: {dist['quantity_dist_type']}")
+    
     # Sample price
     price = sample_from_distribution(dist['price_kde'], dist['price_dist_type'])
     
@@ -381,4 +395,5 @@ for i in range(min(3, len(item_dict))):
         
         
         
+
 

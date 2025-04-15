@@ -127,16 +127,26 @@ def create_product_price_table():
             try:
                 price_kde = gaussian_kde(price_data)
                 price_dist_type = 'kde'
-            except:
+            except Exception as e:
+                print(f"\nError creating KDE for price in category {category}:")
+                print(f"Price data: {price_data.values}")
+                print(f"Mean: {price_data.mean()}")
+                print(f"Std: {price_data.std()}")
+                print(f"Error: {str(e)}")
+                
                 # Fallback to normal distribution if KDE fails
-                mean = price_data.mean() if price_data.mean() > 0 else 1  # Ensure positive mean
-                std = max(price_data.std(), 0.1)    # Ensure positive std
+                mean = price_data.mean() if price_data.mean() > 0 else 1
+                std = price_data.std() if not np.isnan(price_data.std()) else 0.01
+                std = max(std, 0.01)  # Ensure minimum std
+                print(f"Using normal distribution with mean={mean}, std={std}")
                 price_kde = norm(loc=mean, scale=std)
                 price_dist_type = 'normal'
         else:
-            # Use normal distribution for very small samples
-            mean = price_data.mean() if price_data.mean() > 0 else 1  # Ensure positive mean
-            std = max(price_data.std(), 0.1)    # Ensure positive std
+            mean = price_data.mean() if price_data.mean() > 0 else 1
+            std = price_data.std() if not np.isnan(price_data.std()) else 0.01
+            std = max(std, 0.01)  # Ensure minimum std
+            print(f"\nSmall sample for price in category {category}:")
+            print(f"Using normal distribution with mean={mean}, std={std}")
             price_kde = norm(loc=mean, scale=std)
             price_dist_type = 'normal'
         
@@ -146,16 +156,26 @@ def create_product_price_table():
             try:
                 quantity_kde = gaussian_kde(quantity_data)
                 quantity_dist_type = 'kde'
-            except:
+            except Exception as e:
+                print(f"\nError creating KDE for quantity in category {category}:")
+                print(f"Quantity data: {quantity_data.values}")
+                print(f"Mean: {quantity_data.mean()}")
+                print(f"Std: {quantity_data.std()}")
+                print(f"Error: {str(e)}")
+                
                 # Fallback to normal distribution if KDE fails
-                mean = max(quantity_data.mean(), 1)  # Ensure positive mean
-                std = max(quantity_data.std(), 1)    # Ensure positive std
+                mean = quantity_data.mean() if quantity_data.mean() > 0 else 1
+                std = quantity_data.std() if not np.isnan(quantity_data.std()) else 0.01
+                std = max(std, 0.01)  # Ensure minimum std
+                print(f"Using normal distribution with mean={mean}, std={std}")
                 quantity_kde = norm(loc=mean, scale=std)
                 quantity_dist_type = 'normal'
         else:
-            # Use normal distribution for very small samples
-            mean = max(quantity_data.mean(), 1)  # Ensure positive mean
-            std = max(quantity_data.std(), 1)    # Ensure positive std
+            mean = quantity_data.mean() if quantity_data.mean() > 0 else 1
+            std = quantity_data.std() if not np.isnan(quantity_data.std()) else 0.01
+            std = max(std, 0.01)  # Ensure minimum std
+            print(f"\nSmall sample for quantity in category {category}:")
+            print(f"Using normal distribution with mean={mean}, std={std}")
             quantity_kde = norm(loc=mean, scale=std)
             quantity_dist_type = 'normal'
         
