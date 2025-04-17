@@ -1,143 +1,38 @@
-import os
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 from walmart_model import WalmartModel
+import pandas as pd
+from datetime import datetime
 
-def run_simulation(num_steps=100, num_customers=100, num_products=50, data_path="../data_source/Walmart_commerce.csv"):
-    """
-    Run the Walmart simulation for a specified number of steps.
-    
-    Args:
-        num_steps: Number of simulation steps to run
-        num_customers: Number of customer agents
-        num_products: Number of product agents
-        data_path: Path to customer data CSV file
-        
-    Returns:
-        model: The simulation model after running
-    """
-    # Create and run the model
+def run_simulation():
+    # Initialize the model
+    print("Initializing Walmart simulation...")
     model = WalmartModel(
-        num_customers=num_customers,
-        num_products=num_products,
-        data_path=data_path
+        start_date=datetime.now().strftime('%m/%d/%Y'),  # Start from today
+        max_steps=100  # Run for 100 days
     )
     
-    for i in range(num_steps):
-        model.step()
-        if i % 10 == 0:
-            print(f"Step {i}:")
-            print(f"  Total Sales = {model.datacollector.model_vars['Total_Sales'][-1]}")
-            print(f"  Average Basket Size = {model.datacollector.model_vars['Average_Basket_Size'][-1]:.2f}")
-    
-    return model
-
-def export_data(model, output_dir="../data_source"):
-    """
-    Export simulation data to CSV files.
-    
-    Args:
-        model: The simulation model
-        output_dir: Directory to save the CSV files
-    """
-    # Create output directory if it doesn't exist
-    os.makedirs(output_dir, exist_ok=True)
-    
-    # Get model data
-    model_data = model.datacollector.get_model_vars_dataframe()
-    
-    # Get agent data
-    agent_data = model.datacollector.get_agent_vars_dataframe()
-    
-    # Filter agent data by type
-    customer_data = agent_data[agent_data['Type'] == 'Customer']
-    product_data = agent_data[agent_data['Type'] == 'Product']
-    
-    # Export to CSV
-    model_data.to_csv(f"{output_dir}/Walmart_model_data.csv", index=True)
-    customer_data.to_csv(f"{output_dir}/Walmart_customers.csv", index=True)
-    product_data.to_csv(f"{output_dir}/Walmart_products.csv", index=True)
-    
-    # Create transaction data from customer purchase history
-    transactions = []
-    for agent in model.schedule.agents:
-        if agent.type == "Customer" and hasattr(agent, 'purchase_history'):
-            for purchase in agent.purchase_history:
-                transactions.append({
-                    'customer_id': agent.unique_id,
-                    'customer_cluster': agent.attributes.get('cluster', -1),
-                    'product_id': purchase['product_id'],
-                    'quantity': purchase['quantity'],
-                    'price': purchase['price'],
-                    'total': purchase['total'],
-                    'step': purchase['step']
-                })
+    # Run the simulation
+    print("Running simulation...")
+    model.run_model()
     
     # Export transactions
-    if transactions:
-        transactions_df = pd.DataFrame(transactions)
-        transactions_df.to_csv(f"{output_dir}/Walmart_transactions.csv", index=False)
+    print("Exporting transaction data...")
+    model.export_transactions()
     
-    print(f"Data exported to {output_dir}")
-
-def plot_results(model):
-    """
-    Plot simulation results.
+    # Print summary
+    print("\nSimulation Summary:")
+    print(f"Total days simulated: {model.schedule.steps}")
+    print(f"Final date: {model.current_date.strftime('%m/%d/%Y')}")
     
-    Args:
-        model: The simulation model
-    """
-    # Get model data
-    model_data = model.datacollector.get_model_vars_dataframe()
+    # Load and print transaction counts
+    cust1_transactions = pd.read_csv('data_source/cust1_transactions.csv')
+    cust2_transactions = pd.read_csv('data_source/cust2_transactions.csv')
     
-    # Create figure with subplots
-    fig, axs = plt.subplots(2, 2, figsize=(15, 10))
+    print(f"\nTotal Cust1 transactions: {len(cust1_transactions)}")
+    print(f"Total Cust2 transactions: {len(cust2_transactions)}")
+    print(f"Total products sold: {sum(model.datacollector.model_vars['Total Products Sold'])}")
+    print(f"Total sales: ${sum(model.datacollector.model_vars['Total Sales']):.2f}")
     
-    # Plot total sales over time
-    axs[0, 0].plot(model_data.index, model_data['Total_Sales'])
-    axs[0, 0].set_title('Total Sales Over Time')
-    axs[0, 0].set_xlabel('Step')
-    axs[0, 0].set_ylabel('Total Sales')
-    
-    # Plot average basket size over time
-    axs[0, 1].plot(model_data.index, model_data['Average_Basket_Size'])
-    axs[0, 1].set_title('Average Basket Size Over Time')
-    axs[0, 1].set_xlabel('Step')
-    axs[0, 1].set_ylabel('Items per Basket')
-    
-    # Plot category distribution
-    category_data = pd.DataFrame(model_data['Category_Distribution'].tolist())
-    category_data.plot(kind='bar', ax=axs[1, 0])
-    axs[1, 0].set_title('Sales by Category')
-    axs[1, 0].set_xlabel('Category')
-    axs[1, 0].set_ylabel('Total Sales')
-    
-    # Plot customer cluster distribution
-    agent_data = model.datacollector.get_agent_vars_dataframe()
-    customer_data = agent_data[agent_data['Type'] == 'Customer']
-    sns.histplot(data=customer_data, x='Cluster', ax=axs[1, 1])
-    axs[1, 1].set_title('Customer Cluster Distribution')
-    axs[1, 1].set_xlabel('Cluster')
-    axs[1, 1].set_ylabel('Count')
-    
-    plt.tight_layout()
-    plt.savefig("../data_source/simulation_results.png")
-    plt.close()
+    print("\nSimulation completed successfully!")
 
 if __name__ == "__main__":
-    # Run simulation
-    model = run_simulation(
-        num_steps=100,
-        num_customers=100,
-        num_products=50,
-        data_path="../data_source/Walmart_commerce.csv"
-    )
-    
-    # Export data
-    export_data(model)
-    
-    # Plot results
-    plot_results(model)
-    
-    print("Simulation completed successfully!") 
+    run_simulation() 

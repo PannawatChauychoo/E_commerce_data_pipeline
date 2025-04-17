@@ -20,6 +20,8 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+logger = logging.getLogger('data_processor')
+logger.propagate = False  # Ensure logs from this file are captured
 
 class DistributionAnalyzer:
 
