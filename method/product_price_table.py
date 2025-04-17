@@ -276,19 +276,21 @@ def create_product_price_table():
     main_categories = price_table['category_path'].str.split(' > ').str[0].unique()
     print(main_categories)
     for cat in main_categories:
-        cat_group = price_table[price_table['category_path'].str.startswith(cat)]
+        cat_mask = price_table['category_path'].str.startswith(cat)
+        cat_group = price_table[cat_mask]
+        
         # Calculate group averages
         group_avgs = {
             'avg_quantity': cat_group['quantity_count'].mean(),
-            'std_quantity': cat_group['std_quantity'].mean(),
+            'std_quantity': cat_group['std_quantity'].mean(), 
             'avg_unit_price': cat_group['avg_unit_price'].mean(),
             'std_price': (cat_group['avg_unit_price']/cat_group['std_price']).mean()
         }
         
         # Update single count categories with group averages
-        single_count_mask = cat_group['quantity_count'] == 1
+        single_count_mask = (cat_group['quantity_count'] == 1)
         for col, avg in group_avgs.items():
-            cat_group.loc[single_count_mask, col] = avg
+            price_table.loc[cat_mask & single_count_mask, col] = avg
     
     # Create KDE distributions
     kde_distributions = create_kde_distributions(combined_df)
