@@ -34,9 +34,10 @@ Potential causes for bugs:
 - Categories with only one product are included in the output
 
 Solutions
-- Drop NaN categories and categories with only 1 quantity count (Doesn't work)
+- Drop NaN categories (Doesn't work)
 - Create random quantity between 1 and 100 for products data (Remove too many categories)
-- Getting the average quantity, quantity std from the average of the category
+- Getting the average quantity, quantity std from the average of the category (Done)
+- Use fuzzy matching to map raw categories to product_taxonomy (Done)
 """
 
 def read_and_process_transaction_data(file_path: str, chunksize: int = 100000) -> pd.DataFrame:

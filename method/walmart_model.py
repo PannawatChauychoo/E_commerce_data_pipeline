@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 import pickle
 import numpy as np
 from ABM_modeling import Cust1, Cust2, Product as ABMProduct, getting_segments_dist, sample_from_distribution
-
+from collections import defaultdict
 class WalmartModel(Model):
     """
     A model of Walmart e-commerce platform with customers and products.
@@ -26,8 +26,8 @@ class WalmartModel(Model):
         self.datacollector = DataCollector(
             model_reporters={
                 "Current Date": lambda m: m.current_date.strftime('%m/%d/%Y'),
-                "Total Sales": lambda m: sum(agent.daily_sales for agent in m.schedule.agents if isinstance(agent, ABMProduct)),
-                "Total Products Sold": lambda m: sum(agent.daily_sales for agent in m.schedule.agents if isinstance(agent, ABMProduct))
+                "Total Sales": lambda m: sum(agent.total_sales for agent in m.schedule.agents if isinstance(agent, ABMProduct)),
+                "Total Products Sold": lambda m: sum(agent.total_sales/agent.unit_price for agent in m.schedule.agents if isinstance(agent, ABMProduct))
             }
         )
         
@@ -51,6 +51,8 @@ class WalmartModel(Model):
                 cat_dist=segments_cat_dist,
                 num_dist=segments_num_dist
             )
+            if i == 0:
+                print(f'First customer: {cust} from Cust1')
             self.schedule.add(cust)
             
         # Initialize Cust2 customers
@@ -62,18 +64,29 @@ class WalmartModel(Model):
                 cat_dist=segments_cat_dist2,
                 num_dist=segments_num_dist2
             )
+            
+            if i == n_customers//2:
+                print(f'First customer: {cust} from Cust2')
             self.schedule.add(cust)
+        
+        print(f"Total customers: {len(self.schedule.agents)}")
             
     def _initialize_products(self, n_products_per_category):
         """Initialize 5 products for each category."""
         with open('data_source/category_kde_distributions.pkl', 'rb') as f:
             kde_distributions = pickle.load(f)
             
-        product_id = self.n_customers + 1
+        base_product_id = self.n_customers + 1
         for category, dist in kde_distributions.items():
-            for _ in range(n_products_per_category):  # 5 products per category
+            if category == 'nan':
+                continue
+                
+            for i in range(n_products_per_category):  # 5 products per category
                 price = sample_from_distribution(dist['price_kde'], dist['price_dist_type'])
                 quantity = sample_from_distribution(dist['quantity_kde'], dist['quantity_dist_type'])
+                
+                # Create unique product ID by combining category index and product index
+                product_id = base_product_id + i
                 
                 product = ABMProduct(
                     unique_id=product_id,
@@ -83,8 +96,12 @@ class WalmartModel(Model):
                 )
                 
                 self.schedule.add(product)
-                product_id += 1
-                
+                print(f"Created product {product_id} in category {category} with price {price:.2f}")
+
+            base_product_id += n_products_per_category
+
+        print(f"Total products: {base_product_id - (self.n_customers + 1)}")
+        
     def step(self):
         """Advance the model by one step."""
         self.current_date += timedelta(days=1)
@@ -93,14 +110,45 @@ class WalmartModel(Model):
         # Get all products
         products = [agent for agent in self.schedule.agents if isinstance(agent, ABMProduct)]
         
-        # Step through all agents
+        # Step through all customer agents
+        total_purchases = defaultdict(int)
         for agent in self.schedule.agents:
             if isinstance(agent, (Cust1, Cust2)):
-                agent.step(products, current_date_str)
-            elif isinstance(agent, ABMProduct):
-                agent.step(self.current_date)
+                product_id, quantity = agent.step(products, current_date_str)
+                if product_id is not None and quantity is not None:
+                    total_purchases[product_id] += int(quantity)
+                    #print(f"Purchase: Product {product_id}, Quantity {quantity}")
+        
+        total_daily_sales = 0
+        total_daily_products = []
+        
+        # Step though all product agents 
+        for product in products:
+            id = product.unique_id
+            product_sales = total_purchases.get(id, 0)
+            
+            if id == '675':
+                print(product)
+            
+            # Update their sales if not empty
+            if product_sales != 0:
+                product.record_sales(product_sales)
+                print(f"Product {id} total sales: {product_sales}, Unit price: {product.unit_price}")
+  
+                total_daily_sales += product.daily_sales 
+                total_daily_products.append(product.unique_id)
                 
-        self.schedule.step()
+                
+            
+            # Update product state for the current day
+            product.step(self.current_date)
+
+        print(f"\nDay {self.schedule.steps} Summary:")
+        print(f"Daily Sales: ${total_daily_sales:.2f}")
+        print(f"Daily Products Sold: {total_daily_products}")    
+
+        # Update scheduler step count
+        self.schedule.steps += 1
         self.datacollector.collect(self)
         
         if self.schedule.steps >= self.max_steps:
@@ -141,6 +189,13 @@ class WalmartModel(Model):
                         })
                         
         # Convert to DataFrames and export
-        pd.DataFrame(cust1_transactions).to_csv('data_source/cust1_transactions.csv', index=False)
-        pd.DataFrame(cust2_transactions).to_csv('data_source/cust2_transactions.csv', index=False)
+        pd.DataFrame(cust1_transactions).to_csv('/Users/macos/Personal_projects/Portfolio/Project_1_Walmart/Walmart_sim/data_source/cust1_transactions.csv', index=False)
+        pd.DataFrame(cust2_transactions).to_csv('/Users/macos/Personal_projects/Portfolio/Project_1_Walmart/Walmart_sim/data_source/cust2_transactions.csv', index=False)
 
+def main():
+    model = WalmartModel(start_date='01/01/2024', max_steps=10, n_customers=500, n_products_per_category=5)
+    model.run_model()
+    model.export_transactions()
+
+if __name__ == '__main__':
+    main()
