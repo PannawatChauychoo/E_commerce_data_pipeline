@@ -126,9 +126,6 @@ def process_commerce_data(commerce_df: pd.DataFrame, category_to_id: dict, id_to
         pd.DataFrame: Processed commerce data with mapped categories
     """
     processed_df = commerce_df[['product_line', 'unit_price', 'quantity']].copy()
-    
-
-    
     processed_df['category_id'] = processed_df['product_line'].apply(get_category_id, category_to_id=category_to_id)
     processed_df['category_path'] = processed_df['category_id'].map(id_to_path)
     return processed_df
@@ -171,7 +168,10 @@ def create_kde_distributions(combined_df: pd.DataFrame) -> dict:
         dict: Dictionary containing KDE distributions for each category
     """
     kde_distributions = {}
-    for category in combined_df['category_path'].unique():
+    # Drop rows with NaN category_path before getting unique categories
+    valid_categories = combined_df['category_path'].dropna().unique()
+    
+    for category in valid_categories:
         category_data = combined_df[combined_df['category_path'] == category]
         
         # Price distribution
@@ -260,7 +260,15 @@ def create_product_price_table():
             commerce_df[['category_path', 'unit_price', 'quantity']]
         ], ignore_index=True)
     
-    # Calculate statistics per category
+    # Create KDE distributions
+    kde_distributions = create_kde_distributions(combined_df)
+    
+    # Save distribution results
+    with open('data_source/category_kde_distributions.pkl', 'wb') as f:
+        pickle.dump(kde_distributions, f)
+    
+    
+    """ Creating the price table csv file """
     price_table = combined_df.groupby('category_path').agg({
         'unit_price': ['mean', 'std'],
         'quantity': ['mean', 'std', 'count']
@@ -275,7 +283,7 @@ def create_product_price_table():
     
     #Trying to give categories with only one sample their parent's category avg
     main_categories = price_table['category_path'].str.split(' > ').str[0].unique()
-    print(main_categories)
+
     for cat in main_categories:
         cat_mask = price_table['category_path'].str.startswith(cat)
         cat_group = price_table[cat_mask]
@@ -293,13 +301,7 @@ def create_product_price_table():
         for col, avg in group_avgs.items():
             price_table.loc[cat_mask & single_count_mask, col] = avg
     
-    # Create KDE distributions
-    kde_distributions = create_kde_distributions(combined_df)
-    
-    # Save results
-    with open('data_source/category_kde_distributions.pkl', 'wb') as f:
-        pickle.dump(kde_distributions, f)
-    
+    # Save price table
     price_table.to_csv('data_source/product_price_table.csv', index=False)
     return price_table, kde_distributions
 
