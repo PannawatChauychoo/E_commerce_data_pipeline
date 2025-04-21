@@ -11,7 +11,10 @@ import pickle
 from datetime import timedelta
 import logging
 from fuzzywuzzy import process
+
 """
+Using Monte Carlo to generate customer behavior and preferences
+
 Product table:
 - All categories (mapped)
 - Price distribution
@@ -36,13 +39,26 @@ Customer table:
     - Occupation
     
 Concerns:
-- Haven't found a way to include all categories into userpreferences
-   - Product: Category, Discount, Final Unit Price, Quantity
-   - Customer: Category, Unit Price, Quantity
+- Haven't found a way to include all categories into user preferences
+    - Product: Category, Discount, Final Unit Price, Quantity
+    - Customer: Category, Unit Price, Quantity
+- There are always manny more factors to consider:
+    - I have to backup my simulation choices with tangible data showing some aspects of real data
+    - However, validation and verification is one of the greatest challenges in ABM
+        - Verification:
+            - Document
+            - Programmatic testing
+        - Validation:
+            - Micro-face validation
+            - Macro-face validation
+            - Empirical input validation
+            - Empirical output validation
+        
 
 Solutions:
+- Including all categories: Splitting the probability of purchases of big categories equally among smaller ones
+- 
 """
-
 
 # #Customer purchasing categories frequency
 # transaction_purchase_behavior = ['productcategory', 'unitprice', 'quantity']
@@ -61,7 +77,6 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
-
 logger = logging.getLogger(__name__)  # Use the module's name as the logger name
 logger.setLevel(logging.INFO)  # Ensure the logger level is set
 
@@ -87,28 +102,29 @@ class Cust1(Agent):
         self.segment_id = int(np.random.choice(list(segments_dist.keys()), size=1, p=list(segments_dist.values()))[0])
         
         #Getting all attributes from the dataset
-        Demographic = ['age', 'gender', 'city_category', 'stay_in_current_city_years', 'marital_status']
-        Purchase_behavior = ['product_category', 'purchase']
-        
-        cat_num = 0
+        demographic = ['age', 'gender', 'city_category', 'stay_in_current_city_years', 'marital_status']
+        purchase_behavior = ['product_category', 'purchase']
+        demographic_list = []
+        purchase_behavior_list = []
         for key, value in cat_dist[self.segment_id].items():
-            if key.lower() in Demographic:
-                setattr(self, key.lower(), np.random.choice(list(value.keys()), size=1, p=list(value.values())))
-                cat_num += 1
-            elif key.lower() in Purchase_behavior:
-                setattr(self, key.lower(), value)
-                cat_num += 1
+            key = key.lower()
+            if key in demographic:
+                setattr(self, key, str(np.random.choice(list(value.keys()), size=1, p=list(value.values()))[0]))
+                demographic_list.append(key)
+            elif key in purchase_behavior:
+                setattr(self, key, value)
+                purchase_behavior_list.append(key)
             
-        num_num = 0
         for key, value in num_dist[self.segment_id].items():
-            if key.lower() in Purchase_behavior:  
-                setattr(self, key.lower(), value)
-                num_num += 1
+            key = key.lower()
+            if key in purchase_behavior:  
+                setattr(self, key, value)
+                purchase_behavior_list.append(key)
         
-        assert cat_num + num_num == len(Demographic) + len(Purchase_behavior), 'Number of customer attributes does not match expected'
+        assert len(demographic_list) + len(purchase_behavior_list) == len(demographic) + len(purchase_behavior), f'Cust1: Number of customer attributes ({len(demographic_list)}, {len(purchase_behavior_list)}) does not match expected ({len(demographic)}, {len(purchase_behavior)}): \n {demographic_list} \n {purchase_behavior_list}'
         
         self.purchase_history = defaultdict(list)       #{category: [(product_id, unit_price, quantity, current_date),...],...}
-        self.visit_prob = visit_prob                          #default visit probability
+        self.visit_prob = np.random.normal(visit_prob, 0.025)                          #default visit probability
         self.budget = self._calculate_budget()
     
     def __repr__(self):
@@ -129,6 +145,11 @@ class Cust1(Agent):
         #budget = self.purchase.resample(1) 
         return budget[0][0]
     
+    def get_category_preference(self):
+        """
+        Get the category preference based on the learned distributions.
+        """
+        return str(np.random.choice(list(self.product_category.keys()), size=1, p=list(self.product_category.values()))[0])
 
     def make_purchase(self, cat_product_list:list, current_date:str):
         """
@@ -145,9 +166,10 @@ class Cust1(Agent):
             quantity: int of quantity
             
         """
-        choice = str(np.random.choice(list(self.product_category.keys()), size=1, p=list(self.product_category.values()))[0])
+        choice = self.get_category_preference()
         quantity = np.random.randint(1, 10)
         unit_price_preference = self.budget / quantity + np.random.normal(0, 1, 1)[0]
+        print(f"{self.unique_id} choosing category: {choice}")
         
         #Finding the best price match based on category preference
         best_price_match = 0
@@ -179,16 +201,16 @@ class Cust1(Agent):
         actual_quantity = min(quantity, chosen_product.stock)
         total_price = unit_price * actual_quantity
         
+        print(f"{self.unique_id} buying {product_id} with quantity {actual_quantity}")
+        
         if self.budget - total_price >= -5:
             self.purchase_history[choice].append((product_id, unit_price, actual_quantity, current_date))
         else:
-            total_price = unit_price
-            if chosen_product.record_sales(1):
-                self.purchase_history[choice].append((product_id, unit_price, 1, current_date))
+            actual_quantity = 1     
+            self.purchase_history[choice].append((product_id, unit_price, actual_quantity, current_date))
         
         return product_id, unit_price, actual_quantity
-
-    
+          
     def step(self, product_list:list, current_date:str):
         """Update customer behavior and preferences."""
         self.budget = self._calculate_budget()
@@ -196,10 +218,10 @@ class Cust1(Agent):
         
         if visit == 1:
             product_id,unit_price, quantity = self.make_purchase(product_list, current_date)
-            
-            return product_id, quantity
-        else:
-            return None, None
+            if product_id != None and quantity != None:
+                return product_id, quantity
+        
+        return None, None
         
 class Cust2(Agent):
     
@@ -243,14 +265,13 @@ class Cust2(Agent):
                 setattr(self, key.lower(), value)
                 num_num += 1
             
-        assert cat_num + num_num == len(commerce_demographic_table) + len(commerce_purchase_behavior), f'Number of customer attributes does not match expected: {cat_num} + {num_num} != {len(commerce_demographic_table) + len(commerce_purchase_behavior)}'
+        assert cat_num + num_num == len(commerce_demographic_table) + len(commerce_purchase_behavior), f'Cust2: Number of customer attributes ({cat_num}, {num_num}) does not match expected ({len(commerce_demographic_table)}, {len(commerce_purchase_behavior)})'
         
         self.purchase_history = defaultdict(list)
         self.budget = self._calculate_budget()    
     
     def __repr__(self):
         return f'Cust2(id:{self.unique_id}, \nbranch:{self.branch}, \ncity:{self.city}, \ncustomer_type:{self.customer_type}, \ngender:{self.gender}, \npayment_method:{self.payment_method}, \nproduct_line:{self.product_line}, \nquantity:{self.quantity}, \nunit_price:{self.unit_price}, \ndate:{self.date})'
-    
 
     def get_quantity(self) -> int:
         """Get quantity from either gaussian kde or categorical distribution."""
@@ -275,13 +296,20 @@ class Cust2(Agent):
         # budget = self.unit_price.resample(1) * quantity
         return budget[0][0]
     
+    def get_category_preference(self):
+        """
+        Get the category preference based on the learned distributions.
+        """
+        return str(np.random.choice(list(self.product_line.keys()), size=1, p=list(self.product_line.values()))[0])
+    
     def make_purchase(self, cat_product_list:list, current_date:str):
         """
-        Determine product preference based on learned distributions.
-        Cust2 have quantity distribution so will sample from it.
+        Most important function in the model: 
+        - Determine product preference based on learned distributions.
+        - Cust2 have quantity distribution so will sample from it.
         
         Input:
-            cat_product_list: list of product agents
+            cat_product_list: list of product agents from the chosen category
             current_date: str of current date
             
         Output:
@@ -290,9 +318,10 @@ class Cust2(Agent):
             quantity: int of quantity
             
         """
-        choice = str(np.random.choice(list(self.product_line.keys()), size=1, p=list(self.product_line.values()))[0])
+        choice = self.get_category_preference()
         quantity = self.get_quantity()
         unit_price_preference = self.unit_price.resample(1)[0][0]
+
         
         #Finding the best price match based on category preference
         best_price_match = 0
@@ -312,7 +341,7 @@ class Cust2(Agent):
         # 1/5 => quit the purchase
         if cat_product_list[chosen_product_index].stock == 0:
             quit_prob = random.randint(0, 100)
-            if quit_prob > 80:
+            if quit_prob > 60:
                 return None, None, None
             else:
                 in_stock_products = [p for p in cat_product_list if p.stock > 0]
@@ -326,44 +355,35 @@ class Cust2(Agent):
         unit_price = chosen_product.unit_price
         actual_quantity = min(quantity, chosen_product.stock)
         total_price = unit_price * actual_quantity
+        print(f"{self.unique_id} buying {product_id} with quantity {actual_quantity}")
         
         if self.budget - total_price >= -5:
-            if chosen_product.record_sales(actual_quantity):
-                self.purchase_history[choice].append((product_id, unit_price, actual_quantity, current_date))
-            
-            else:
-                return None, None, None
+            self.purchase_history[choice].append((product_id, unit_price, actual_quantity, current_date))
         else:
-            total_price = unit_price
-            if chosen_product.record_sales(1):
-                self.purchase_history[choice].append((product_id, unit_price, 1, current_date))
-                
-            else:
-                return None, None, None
+            actual_quantity = 1     
+            self.purchase_history[choice].append((product_id, unit_price, actual_quantity, current_date))
         
         return product_id, unit_price, actual_quantity
     
     def get_mostcommon_date(self, top_date:int=3) -> list[str]:
-        """Pure function to get the most n common date from the date distribution."""
-        # sorted_dist = sorted(self.date.items(), key = lambda x: x[1], reverse=True)
-        # day_list = [x[0] for x in sorted_dist[0:top_date]]
+        """Pure function: get the top n common date from the date distribution."""
         return [x[0] for x in sorted(self.date.items(), key = lambda x: x[1], reverse=True)[0:top_date]] 
-        
 
     def step(self, product_list:list, current_date:str):
         """
         Update customer behavior and preferences.
         date: mm/dd/yyyy
         """
+
         self.budget = self._calculate_budget()
         visit_dates = self.get_mostcommon_date()
         date = current_date.split('/')[1]
         
         if date in visit_dates:
             product_id, unit_price, quantity = self.make_purchase(product_list, current_date)
-            return product_id, quantity
-        else:
-            return None, None
+            if product_id != None and quantity != None:
+                return product_id, quantity
+        return None, None
 
 class Product(Agent):
     
@@ -381,13 +401,14 @@ class Product(Agent):
         self.ordering_cost = float(np.random.normal(20,5,1)[0])
         self.holding_cost_per_unit = float(np.random.normal(0.10, 0.02, 1)[0])
         self.EOQ = np.sqrt((2 * self.annual_demand * self.ordering_cost)/ self.holding_cost_per_unit)
-        self.stock = min(int(self.EOQ), 100)  # Cap initial stock at 100
+        self.stock = min(int(self.EOQ), 500)  # Cap initial stock at 100
         self.pending_restock_orders = []  # List of (arrival_date, quantity)
         
         self.daily_sales = 0
         self.total_sales = 0
     
     def __repr__(self):
+        """For printing the product agent"""
         return f'Product({self.unique_id}, {self.product_category}, {self.unit_price}, {self.annual_demand})'
         
     def place_restock_order(self, current_date: datetime.datetime):
@@ -432,21 +453,18 @@ class Product(Agent):
 
 
 #Helper functions
-def sample_from_distribution(dist, dist_type, n_samples=1):
+def sample_from_distribution(dist, dist_type, n_samples=1) -> float:
     try:
         if dist_type == 'kde':
             samples = dist.resample(size=n_samples)[0]
+            return max(samples[0], 1)  # Minimum price of 1
         else:  # normal distribution
             logger.debug(f"Sampling from normal distribution:")
             logger.debug(f"Distribution parameters: loc={dist.kwds.get('loc', 0)}, scale={dist.kwds.get('scale', 1)}")
             samples = dist.rvs(size=n_samples)
             logger.debug(f"Generated samples: {samples}")
-        
-        # Ensure positive values
-        if dist_type == 'kde':
-            return max(samples[0], 0.01)  # Minimum price of 0.01
-        else:
             return max(samples[0], 1)  # Minimum quantity of 1
+    
     except Exception as e:
         logger.error(f"Error sampling from distribution:")
         logger.error(f"Distribution type: {dist_type}")
@@ -454,7 +472,7 @@ def sample_from_distribution(dist, dist_type, n_samples=1):
         logger.error(f"Error: {str(e)}")
         raise
 
-def getting_segments_dist(path):
+def getting_segments_dist(path) -> tuple[dict[int, float], dict[str, float], dict[int, float]]:
     """
     Gets customer segment distributions from a dataset and ensures all product categories have probabilities.
     
@@ -475,45 +493,65 @@ def getting_segments_dist(path):
     segments_dist = {int(k): v[0] for k,v in customer_segments_dist.items()}
     segments_cat_dist = {int(k): v[1] for k,v in customer_segments_dist.items()}
     segments_num_dist = {int(k): v[2] for k,v in customer_segments_dist.items()}
-    
+
     segments_cat_dist = map_cutomerpref_to_all_categories(segments_cat_dist)
-    
     return segments_dist, segments_cat_dist, segments_num_dist
     
-def map_cutomerpref_to_all_categories(segments_cat_dist:dict):
+def map_cutomerpref_to_all_categories(segments_cat_dist:dict) -> dict[str, float]:
     """
     Map customer preferences to all categories using fuzzy matching.
     For each customer segment:
     1. Fuzzy match their category preferences to product price table categories
-    2. Split probability equally among matching subcategories
+    2. Split probability equally among smaller subcategories | add smallest category directly
     3. Add small probability for unmatched categories
     4. Normalize all probabilities
+    5. Output the final categories
+    
+    Key formatting changes:
+    - Convert all keys to lowercase and remove whitespace
     """
     # Read product price table to get all categories
     price_table = pd.read_csv('data_source/product_price_table.csv')
-    all_categories = price_table['category_path'].unique()
     
+    #Getting the main keys and their sub categories in a dict
+    categories_dict = {}
+    main_key = price_table['category_path'].str.split('>').str[0].unique()
+    for k in main_key:
+        sub_key = [x.split('>')[-1].strip().lower() for x in price_table['category_path'] if x.startswith(k)]
+        key_lower = k.strip().lower()
+        if key_lower not in categories_dict:
+            categories_dict[key_lower] = sub_key
+            
     # For each segment, match and redistribute preferences
     for segment_id, cat_dist in segments_cat_dist.items():
-        if 'product_category' in cat_dist or 'product_line' in cat_dist:
+        lower_cat_dist = {k.lower():v for k,v in cat_dist.items()}
+        if 'product_category' in lower_cat_dist or 'product_line' in lower_cat_dist:
             # Get current preferences dict
-            prefs = cat_dist.get('product_category', {}) or cat_dist.get('product_line', {})
+            prefs = lower_cat_dist.get('product_category', {}) or lower_cat_dist.get('product_line', {})
             new_prefs = {}
             
             # For each customer preference category
             for cat, prob in prefs.items():
-                # Fuzzy match to find all related categories
-                matches = process.extractBests(cat, all_categories, score_cutoff=80)
+                # Fuzzy match to find best category match
+                cat = cat.lower()
+                keys = [x.lower() for x in list(categories_dict.keys())]
+                values = [x.lower() for y in list(categories_dict.values()) for x in y]
+                main_match = process.extractOne(cat, keys)
+                smallest_match = process.extractOne(cat, values)
                 
-                if matches:
-                    # Split probability equally among matches
-                    split_prob = prob / len(matches)
-                    for match_info in matches:
-                        match = match_info[0]  # First element is always the match
-                        new_prefs[match] = split_prob
+                if main_match:
+                    if not smallest_match or main_match[1] > smallest_match[1]:
+                        sub_cat = categories_dict[main_match[0]]
+                        split_prob = prob / len(sub_cat)
+                        new_prefs.update({i: split_prob for i in sub_cat})
+                    else:
+                        new_prefs[smallest_match[0]] = prob
+                elif smallest_match:
+                    new_prefs[smallest_match[0]] = prob
                 
             # Add small probability for unmatched categories
-            for cat in all_categories:
+            for cat in price_table['category_path'].str.split('>').str[-1].unique():
+                cat = cat.lower().strip()
                 if cat not in new_prefs:
                     new_prefs[cat] = 0.01
                     
@@ -522,27 +560,41 @@ def map_cutomerpref_to_all_categories(segments_cat_dist:dict):
             new_prefs = {k: v/total for k, v in new_prefs.items()}
             
             # Update segment preferences
-            if 'product_category' in cat_dist:
-                cat_dist['product_category'] = new_prefs
+            if 'product_category' in lower_cat_dist:
+                lower_cat_dist['product_category'] = new_prefs
             else:
-                cat_dist['product_line'] = new_prefs
+                lower_cat_dist['product_line'] = new_prefs
+                
+        segments_cat_dist[segment_id] = lower_cat_dist
+
+    
+    #Checking the output
+    if 'product_category' in segments_cat_dist[1]:
+        final_categories = set(segments_cat_dist[1]['product_category'].keys())
+    else:
+        final_categories = set(segments_cat_dist[1]['product_line'].keys())
+        
+    keys_recorded = set(price_table['category_path'].str.split('>').str[-1].unique())
+    assert len(final_categories) == len(keys_recorded), f'Final categories do not match recorded categories'
     
     return segments_cat_dist
 
-def get_itinerary_category(category:str, item_dict:dict):
+def get_itinerary_category(category:str, item_list:list) -> list[Product]:
     """
     Get all the products containing the category.
     """
-    return [x for x in item_dict.values() if category in str(x.product_category)] 
+    return [x for x in item_list if (match := process.extractOne(category, [x.product_category])) and match[1] > 80] 
 
 def main():
     #Building the customer agents
     logger.info("Initializing customer agents...")
     segments_dist, segments_cat_dist, segments_num_dist = getting_segments_dist("/Users/macos/Personal_projects/Portfolio/Project_1_Walmart/Walmart_sim/data_source/Walmart_cust.csv")
+    #print(segments_cat_dist[1])
     first_cust = Cust1(unique_id=1, segments_dist=segments_dist, cat_dist=segments_cat_dist, num_dist=segments_num_dist)
     logger.info(f"Created Cust1 with budget: {first_cust.budget}")
     
     segments_dist2, segments_cat_dist2, segments_num_dist2 = getting_segments_dist("/Users/macos/Personal_projects/Portfolio/Project_1_Walmart/Walmart_sim/data_source/Walmart_commerce.csv")
+    # print(segments_cat_dist2[1])
     first_cust2 = Cust2(unique_id=1, segments_dist=segments_dist2, cat_dist=segments_cat_dist2, num_dist=segments_num_dist2)
     logger.info(f"Created Cust2 with budget: {first_cust2.budget}")
 
@@ -553,41 +605,39 @@ def main():
     
     # Create product instances
     n = 0
-    item_dict = {}
+    item_list = []
     for category, dist in kde_distributions.items():
-        print(category, type(category))
-        if category == 'nan':
-            continue
+        sub_category = category.split('>')[-1].strip().lower()
         
-        logger.info(f"Processing category: {category}")
+        logger.info(f"Processing category: {sub_category}")
         logger.debug(f"Price + quantity distribution type: {dist['price_dist_type']} | {dist['quantity_dist_type']}")
+
+        n_products = 5
+        for _ in range(n_products):
+            # Sample price
+            price = sample_from_distribution(dist['price_kde'], dist['price_dist_type'])
+            # Sample quantity
+            quantity = sample_from_distribution(dist['quantity_kde'], dist['quantity_dist_type'])
+            # Create product instance
+            item_list.append(Product(
+                unique_id=n, 
+                product_category=sub_category,
+                unit_price=price,
+                avg_quantity=quantity
+            ))
+            n += 1
+        logger.info(f"Created {n_products} product for {sub_category} with price {price:.2f} and quantity {quantity}")
         
-        # Sample price
-        price = sample_from_distribution(dist['price_kde'], dist['price_dist_type'])
-        
-        # Sample quantity
-        quantity = sample_from_distribution(dist['quantity_kde'], dist['quantity_dist_type'])
-        
-        # Create product instance
-        item_dict[n] = Product(
-            unique_id=n, 
-            product_category=category,
-            unit_price=price,
-            avg_quantity=quantity
-        )
-        logger.info(f"Created product {n} with price {price:.2f} and quantity {quantity}")
-        n += 1
     
-    print('Number of categories: ', len(item_dict))
 
     # Print first few items to verify
     string = "First 3 product instances:"
-    for i in range(min(3, len(item_dict))):
-        string += ('\n' + str(item_dict[i]))
+    for i in range(min(3, len(item_list))):
+        string += ('\n' + str(item_list[i]))
     logger.info(string)
 
     #Making purchases    
-    beauty_products = get_itinerary_category('nan', item_dict)
+    beauty_products = get_itinerary_category('personal care', item_list)
     logger.info(f'Beauty products: {beauty_products}')
     
     product_id, unit_price, quantity = first_cust.make_purchase(beauty_products, '01/01/2024')
