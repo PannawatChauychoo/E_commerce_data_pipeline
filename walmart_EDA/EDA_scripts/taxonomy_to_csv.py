@@ -34,7 +34,6 @@ PRODUCT_TAXONOMY = {
         'Fashion Accessories': {}
     },
     'Electronics': {
-        'Electronics': {},
         'Electronic Accessories': {}
     },
     'Sports & Outdoors': {},
@@ -77,7 +76,8 @@ CATEGORY_SOURCES = {
 
 def get_source_table(category_name):
     for source, categories in CATEGORY_SOURCES.items():
-        if category_name in categories:
+        categories = [i.lower() for i in categories]
+        if category_name.lower() in categories:
             return source
     return 'Surrogate'
 
@@ -87,10 +87,16 @@ def write_taxonomy_to_csv(taxonomy, filename):
         writer.writerow(['cat_id', 'parent_id', 'level', 'cat_name', 'path'])
 
         def traverse(node, parent_id, level, path):
+            # Recursively traverses the taxonomy tree and writes each category to CSV
+            # For each category (key) and its subcategories (value) in the current node:
             for i, (key, value) in enumerate(node.items(), start=1):
+                # Create category ID by appending index to parent ID (e.g. "1-2-3")
                 cat_id = f"{parent_id}-{i}" if parent_id else str(i)
+                # Build full path (e.g. "Food > Beverages > Wine") 
                 current_path = f"{path} > {key}" if path else key
+                # Write category info to CSV: ID, parent, level, name, full path
                 writer.writerow([cat_id, parent_id or '-', level, key, current_path])
+                # Recursively process subcategories, incrementing level
                 traverse(value, cat_id, level + 1, current_path)
 
         traverse(taxonomy, None, 1, '')
