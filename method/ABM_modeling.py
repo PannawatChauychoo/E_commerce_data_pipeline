@@ -472,7 +472,7 @@ def sample_from_distribution(dist, dist_type, n_samples=1) -> float:
         logger.error(f"Error: {str(e)}")
         raise
 
-def getting_segments_dist(path) -> tuple[dict[int, float], dict[str, float], dict[int, float]]:
+def getting_segments_dist(path) -> tuple[dict[int, float], dict[int, dict[str, float]], dict[int, dict[str, float]]]:
     """
     Gets customer segment distributions from a dataset and ensures all product categories have probabilities.
     
@@ -497,7 +497,7 @@ def getting_segments_dist(path) -> tuple[dict[int, float], dict[str, float], dic
     segments_cat_dist = map_cutomerpref_to_all_categories(segments_cat_dist)
     return segments_dist, segments_cat_dist, segments_num_dist
     
-def map_cutomerpref_to_all_categories(segments_cat_dist:dict) -> dict[str, float]:
+def map_cutomerpref_to_all_categories(segments_cat_dist:dict) -> dict[int, dict[str, float]]:
     """
     Map customer preferences to all categories using fuzzy matching.
     For each customer segment:
