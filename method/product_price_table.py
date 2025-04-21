@@ -267,8 +267,11 @@ def create_product_price_table():
     with open('data_source/category_kde_distributions.pkl', 'wb') as f:
         pickle.dump(kde_distributions, f)
     
-    
+     
     """ Creating the price table csv file """
+    # Filter out main categories first
+    combined_df = combined_df[combined_df['category_path'].str.contains('>', na=False)]
+    
     price_table = combined_df.groupby('category_path').agg({
         'unit_price': ['mean', 'std'],
         'quantity': ['mean', 'std', 'count']
@@ -302,6 +305,8 @@ def create_product_price_table():
             price_table.loc[cat_mask & single_count_mask, col] = avg
     
     # Save price table
+    # Double check to ensure no main categories
+    price_table = price_table[price_table['category_path'].str.contains('>', na=False)]
     price_table.to_csv('data_source/product_price_table.csv', index=False)
     return price_table, kde_distributions
 
