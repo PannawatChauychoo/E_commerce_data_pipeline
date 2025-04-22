@@ -151,7 +151,7 @@ class Cust1(Agent):
         """
         return str(np.random.choice(list(self.product_category.keys()), size=1, p=list(self.product_category.values()))[0])
 
-    def make_purchase(self, cat_product_list:list, current_date:str):
+    def make_purchase(self, choice:str, cat_product_list:list, current_date:str):
         """
         Determine product preference based on learned distributions.
         Cust1 do not have quantity distribution so will create a random quantity from 0 - 10
@@ -166,10 +166,8 @@ class Cust1(Agent):
             quantity: int of quantity
             
         """
-        choice = self.get_category_preference()
         quantity = np.random.randint(1, 10)
         unit_price_preference = self.budget / quantity + np.random.normal(0, 1, 1)[0]
-        print(f"{self.unique_id} choosing category: {choice}")
         
         #Finding the best price match based on category preference
         best_price_match = 0
@@ -201,8 +199,6 @@ class Cust1(Agent):
         actual_quantity = min(quantity, chosen_product.stock)
         total_price = unit_price * actual_quantity
         
-        print(f"{self.unique_id} buying {product_id} with quantity {actual_quantity}")
-        
         if self.budget - total_price >= -5:
             self.purchase_history[choice].append((product_id, unit_price, actual_quantity, current_date))
         else:
@@ -211,13 +207,13 @@ class Cust1(Agent):
         
         return product_id, unit_price, actual_quantity
           
-    def step(self, product_list:list, current_date:str):
+    def step(self, choice:str, product_list:list, current_date:str):
         """Update customer behavior and preferences."""
         self.budget = self._calculate_budget()
         visit = 0 if random.randint(0, 100) > (self.visit_prob*100) else 1
         
         if visit == 1:
-            product_id,unit_price, quantity = self.make_purchase(product_list, current_date)
+            product_id,unit_price, quantity = self.make_purchase(choice, product_list, current_date)
             if product_id != None and quantity != None:
                 return product_id, quantity
         
@@ -302,7 +298,7 @@ class Cust2(Agent):
         """
         return str(np.random.choice(list(self.product_line.keys()), size=1, p=list(self.product_line.values()))[0])
     
-    def make_purchase(self, cat_product_list:list, current_date:str):
+    def make_purchase(self, choice:str, cat_product_list:list, current_date:str):
         """
         Most important function in the model: 
         - Determine product preference based on learned distributions.
@@ -318,7 +314,6 @@ class Cust2(Agent):
             quantity: int of quantity
             
         """
-        choice = self.get_category_preference()
         quantity = self.get_quantity()
         unit_price_preference = self.unit_price.resample(1)[0][0]
 
@@ -369,7 +364,7 @@ class Cust2(Agent):
         """Pure function: get the top n common date from the date distribution."""
         return [x[0] for x in sorted(self.date.items(), key = lambda x: x[1], reverse=True)[0:top_date]] 
 
-    def step(self, product_list:list, current_date:str):
+    def step(self, choice:str, product_list:list, current_date:str):
         """
         Update customer behavior and preferences.
         date: mm/dd/yyyy
@@ -380,7 +375,7 @@ class Cust2(Agent):
         date = current_date.split('/')[1]
         
         if date in visit_dates:
-            product_id, unit_price, quantity = self.make_purchase(product_list, current_date)
+            product_id, unit_price, quantity = self.make_purchase(choice=choice, cat_product_list=product_list, current_date=current_date)
             if product_id != None and quantity != None:
                 return product_id, quantity
         return None, None
@@ -414,7 +409,7 @@ class Product(Agent):
     def place_restock_order(self, current_date: datetime.datetime):
         """Place a restock order if stock is below threshold."""
         if self.stock < self.EOQ/2:
-            restock_amount = min(int(self.EOQ), 50)  # Cap restock amount at 50
+            restock_amount = max(int(self.EOQ), 50)  # Cap restock amount at 50
             arrival_date = current_date + timedelta(days=self.lead_days)
             self.pending_restock_orders.append((arrival_date, restock_amount))
         
@@ -495,6 +490,9 @@ def getting_segments_dist(path) -> tuple[dict[int, float], dict[int, dict[str, f
     segments_num_dist = {int(k): v[2] for k,v in customer_segments_dist.items()}
 
     segments_cat_dist = map_cutomerpref_to_all_categories(segments_cat_dist)
+    
+    assert 'product_category' in segments_cat_dist[1] or 'product_line' in segments_cat_dist[1], f'New product category or product line not found in segments_cat_dist'
+    
     return segments_dist, segments_cat_dist, segments_num_dist
     
 def map_cutomerpref_to_all_categories(segments_cat_dist:dict) -> dict[int, dict[str, float]]:
@@ -505,7 +503,7 @@ def map_cutomerpref_to_all_categories(segments_cat_dist:dict) -> dict[int, dict[
     2. Split probability equally among smaller subcategories | add smallest category directly
     3. Add small probability for unmatched categories
     4. Normalize all probabilities
-    5. Output the final categories
+    5. Output the final categories (test: # of categories == # of total categories in price table)
     
     Key formatting changes:
     - Convert all keys to lowercase and remove whitespace
@@ -627,8 +625,6 @@ def main():
             ))
             n += 1
         logger.info(f"Created {n_products} product for {sub_category} with price {price:.2f} and quantity {quantity}")
-        
-    
 
     # Print first few items to verify
     string = "First 3 product instances:"
@@ -640,7 +636,7 @@ def main():
     beauty_products = get_itinerary_category('personal care', item_list)
     logger.info(f'Beauty products: {beauty_products}')
     
-    product_id, unit_price, quantity = first_cust.make_purchase(beauty_products, '01/01/2024')
+    product_id, unit_price, quantity = first_cust.make_purchase(choice='personal care', cat_product_list=beauty_products, current_date='01/01/2024')
     logger.info(f'Product ID: {product_id}, Unit Price: {unit_price}, Quantity: {quantity}')
     
     #Updating the product sales

@@ -2,7 +2,6 @@ from mesa import Model
 from mesa.time import RandomActivation # type: ignore
 from mesa.datacollection import DataCollector
 from mesa.space import MultiGrid
-from walmart_agents import Customer, Product
 from data_processor import DistributionAnalyzer
 import random
 import pandas as pd
@@ -10,8 +9,14 @@ from typing import Dict, List
 from datetime import datetime, timedelta
 import pickle
 import numpy as np
-from ABM_modeling import Cust1, Cust2, Product as ABMProduct, getting_segments_dist, sample_from_distribution
+from ABM_modeling import Cust1, Cust2, Product as ABMProduct, getting_segments_dist, sample_from_distribution, get_itinerary_category
 from collections import defaultdict
+
+
+
+
+
+
 class WalmartModel(Model):
     """
     A model of Walmart e-commerce platform with customers and products.
@@ -43,13 +48,13 @@ class WalmartModel(Model):
         """Initialize 100 customers (50 Cust1 and 50 Cust2)."""
         # Initialize Cust1 customers
         segments_dist, segments_cat_dist, segments_num_dist = getting_segments_dist("data_source/Walmart_cust.csv")
-
         for i in range(n_customers//2):
             cust = Cust1(
                 unique_id=i,
                 segments_dist=segments_dist,
                 cat_dist=segments_cat_dist,
-                num_dist=segments_num_dist
+                num_dist=segments_num_dist,
+                visit_prob=0.10
             )
             if i == 0:
                 print(f'First customer: {cust} from Cust1')
@@ -70,7 +75,8 @@ class WalmartModel(Model):
             self.schedule.add(cust)
         
         print(f"Total customers: {len(self.schedule.agents)}")
-            
+    
+    #Todo: Fix the repeated product ID
     def _initialize_products(self, n_products_per_category):
         """Initialize 5 products for each category."""
         with open('data_source/category_kde_distributions.pkl', 'rb') as f:
@@ -78,27 +84,22 @@ class WalmartModel(Model):
             
         base_product_id = self.n_customers + 1
         for category, dist in kde_distributions.items():
-            if category == 'nan':
+            if category == 'nan':  # Skip nan categories
                 continue
-                
-            for i in range(n_products_per_category):  # 5 products per category
+            for i in range(n_products_per_category):
                 price = sample_from_distribution(dist['price_kde'], dist['price_dist_type'])
                 quantity = sample_from_distribution(dist['quantity_kde'], dist['quantity_dist_type'])
                 
-                # Create unique product ID by combining category index and product index
-                product_id = base_product_id + i
-                
                 product = ABMProduct(
-                    unique_id=product_id,
+                    unique_id=base_product_id,
                     product_category=category,
                     unit_price=price,
                     avg_quantity=quantity
                 )
                 
                 self.schedule.add(product)
-                print(f"Created product {product_id} in category {category} with price {price:.2f}")
-
-            base_product_id += n_products_per_category
+                base_product_id += 1
+                print(f"Created product {base_product_id-1} in category {category} with price {price:.2f}")
 
         print(f"Total products: {base_product_id - (self.n_customers + 1)}")
         
@@ -110,14 +111,16 @@ class WalmartModel(Model):
         # Get all products
         products = [agent for agent in self.schedule.agents if isinstance(agent, ABMProduct)]
         
-        # Step through all customer agents
+        # Get all purchases from customer agents
         total_purchases = defaultdict(int)
         for agent in self.schedule.agents:
             if isinstance(agent, (Cust1, Cust2)):
-                product_id, quantity = agent.step(products, current_date_str)
+                choosen_category = agent.get_category_preference()
+                category_products = get_itinerary_category(choosen_category, products)
+                product_id, quantity = agent.step(choice=choosen_category, product_list=category_products, current_date=current_date_str)
                 if product_id is not None and quantity is not None:
+                    #print(f"Product {product_id} purchased with quantity {quantity}")
                     total_purchases[product_id] += int(quantity)
-                    #print(f"Purchase: Product {product_id}, Quantity {quantity}")
         
         total_daily_sales = 0
         total_daily_products = []
@@ -127,17 +130,13 @@ class WalmartModel(Model):
             id = product.unique_id
             product_sales = total_purchases.get(id, 0)
             
-            if id == '675':
-                print(product)
-            
             # Update their sales if not empty
             if product_sales != 0:
                 product.record_sales(product_sales)
                 print(f"Product {id} total sales: {product_sales}, Unit price: {product.unit_price}")
   
-                total_daily_sales += product.daily_sales 
+                total_daily_sales += product.daily_sales * product.unit_price 
                 total_daily_products.append(product.unique_id)
-                
                 
             
             # Update product state for the current day
@@ -193,7 +192,7 @@ class WalmartModel(Model):
         pd.DataFrame(cust2_transactions).to_csv('/Users/macos/Personal_projects/Portfolio/Project_1_Walmart/Walmart_sim/data_source/cust2_transactions.csv', index=False)
 
 def main():
-    model = WalmartModel(start_date='01/01/2024', max_steps=10, n_customers=500, n_products_per_category=5)
+    model = WalmartModel(start_date='01/01/2024', max_steps=10, n_customers=100, n_products_per_category=15)
     model.run_model()
     model.export_transactions()
 
