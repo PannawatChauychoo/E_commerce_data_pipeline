@@ -99,7 +99,7 @@ class WalmartModel(Model):
                 
                 self.schedule.add(product)
                 base_product_id += 1
-                print(f"Created product {base_product_id-1} in category {category} with price {price:.2f}")
+                #print(f"Created product {base_product_id-1} in category {category} with price {price:.2f}")
 
         print(f"Total products: {base_product_id - (self.n_customers + 1)}")
         
@@ -133,7 +133,7 @@ class WalmartModel(Model):
             # Update their sales if not empty
             if product_sales != 0:
                 product.record_sales(product_sales)
-                print(f"Product {id} total sales: {product_sales}, Unit price: {product.unit_price}")
+                #print(f"Product {id} total sales: {product_sales}, Unit price: {product.unit_price}")
   
                 total_daily_sales += product.daily_sales * product.unit_price 
                 total_daily_products.append(product.unique_id)
@@ -160,41 +160,61 @@ class WalmartModel(Model):
             
     def export_transactions(self):
         """Export transactions to CSV files."""
-        cust1_transactions = []
-        cust2_transactions = []
+        all_transactions = []
+        
+        for agent in self.schedule.agents:
+            if isinstance(agent, (Cust1, Cust2)):
+                for category, purchases in agent.purchase_history.items():
+                    for purchase in purchases:
+                        all_transactions.append({
+                            'unique_id': agent.unique_id,
+                            'product_id': purchase[0],
+                            'unit_price': purchase[1],
+                            'quantity': purchase[2],
+                            'date': purchase[3],
+                            'category': category
+                    })
+
+        # Convert to DataFrames and export
+        pd.DataFrame(all_transactions).to_csv('/Users/macos/Personal_projects/Portfolio/Project_1_Walmart/Walmart_sim/data_source/agm_output/all_transactions.csv', index=False)
+
+    def export_demographics(self):
+        """Export customer demographics to CSV files."""
+        cust1_demographics = []
+        cust2_demographics = []
         
         for agent in self.schedule.agents:
             if isinstance(agent, Cust1):
-                for category, purchases in agent.purchase_history.items():
-                    for purchase in purchases:
-                        cust1_transactions.append({
-                            'unique_id': agent.unique_id,
-                            'product_id': purchase[0],
-                            'unit_price': purchase[1],
-                            'quantity': purchase[2],
-                            'date': purchase[3],
-                            'category': category
-                        })
+                cust1_demographics.append({
+                    'unique_id': agent.unique_id,
+                    'age': agent.age,
+                    'gender': agent.gender,
+                    'city_category': agent.city_category,
+                    'stay_in_current_city_years': agent.stay_in_current_city_years,
+                    'marital_status': agent.marital_status,
+                    'segment_id': agent.segment_id,
+                    'visit_prob': agent.visit_prob
+                })
             elif isinstance(agent, Cust2):
-                for category, purchases in agent.purchase_history.items():
-                    for purchase in purchases:
-                        cust2_transactions.append({
-                            'unique_id': agent.unique_id,
-                            'product_id': purchase[0],
-                            'unit_price': purchase[1],
-                            'quantity': purchase[2],
-                            'date': purchase[3],
-                            'category': category
-                        })
-                        
+                cust2_demographics.append({
+                    'unique_id': agent.unique_id,
+                    'branch': agent.branch,
+                    'city': agent.city,
+                    'customer_type': agent.customer_type,
+                    'gender': agent.gender,
+                    'payment_method': agent.payment_method,
+                    'segment_id': agent.segment_id
+                })
+         
         # Convert to DataFrames and export
-        pd.DataFrame(cust1_transactions).to_csv('/Users/macos/Personal_projects/Portfolio/Project_1_Walmart/Walmart_sim/data_source/cust1_transactions.csv', index=False)
-        pd.DataFrame(cust2_transactions).to_csv('/Users/macos/Personal_projects/Portfolio/Project_1_Walmart/Walmart_sim/data_source/cust2_transactions.csv', index=False)
+        pd.DataFrame(cust1_demographics).to_csv('/Users/macos/Personal_projects/Portfolio/Project_1_Walmart/Walmart_sim/data_source/agm_output/cust1_demographics.csv', index=False)
+        pd.DataFrame(cust2_demographics).to_csv('/Users/macos/Personal_projects/Portfolio/Project_1_Walmart/Walmart_sim/data_source/agm_output/cust2_demographics.csv', index=False)
 
 def main():
     model = WalmartModel(start_date='01/01/2024', max_steps=10, n_customers=100, n_products_per_category=15)
     model.run_model()
     model.export_transactions()
+    model.export_demographics()
 
 if __name__ == '__main__':
     main()
