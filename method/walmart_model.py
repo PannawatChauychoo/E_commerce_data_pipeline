@@ -210,6 +210,25 @@ class WalmartModel(Model):
         pd.DataFrame(cust1_demographics).to_csv('/Users/macos/Personal_projects/Portfolio/Project_1_Walmart/Walmart_sim/data_source/agm_output/cust1_demographics.csv', index=False)
         pd.DataFrame(cust2_demographics).to_csv('/Users/macos/Personal_projects/Portfolio/Project_1_Walmart/Walmart_sim/data_source/agm_output/cust2_demographics.csv', index=False)
 
+    def export_products(self):
+        """Export products to CSV files."""
+        products = []
+        for agent in self.schedule.agents:
+            if isinstance(agent, ABMProduct):
+                products.append({
+                    'product_id': agent.unique_id,
+                    'category': agent.product_category,
+                    'unit_price': agent.unit_price,
+                    'stock': agent.stock,
+                    'lead_days': agent.lead_days,
+                    'ordering_cost': agent.ordering_cost,
+                    'holding_cost_per_unit': agent.holding_cost_per_unit,
+                    'EOQ': agent.EOQ
+                })
+        
+        # Convert to DataFrames and export
+        pd.DataFrame(products).to_csv('/Users/macos/Personal_projects/Portfolio/Project_1_Walmart/Walmart_sim/data_source/agm_output/products.csv', index=False)
+        
 def main():
     model = WalmartModel(start_date='01/01/2024', max_steps=10, n_customers=100, n_products_per_category=15)
     model.run_model()
