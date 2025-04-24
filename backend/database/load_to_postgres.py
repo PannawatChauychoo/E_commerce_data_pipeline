@@ -41,29 +41,27 @@ def connect_to_db():
 
 def setup_database():
     """Create database schema from SQL file."""
-    try:
-        conn = connect_to_db()
-        cur = conn.cursor()
-        
-        # Read schema file
+
+    conn = connect_to_db()
+    cur = conn.cursor()
+    
+    # Check if schema exists
+    cur.execute("SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'walmart';")
+    schema_exists = cur.fetchone() is not None
+    
+    if not schema_exists:
+        # Read and execute schema file only if schema doesn't exist
         with open('backend/database/schema.sql', 'r') as f:
             schema_sql = f.read()
-        
-        # Execute schema SQL
         cur.execute(schema_sql)
         conn.commit()
+        print("Schema 'walmart' created successfully")
+    else:
+        print("Schema 'walmart' already exists, skipping creation")
         
-        # Verify schema was created
-        cur.execute("SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'walmart';")
-        if cur.fetchone():
-            print("Schema 'walmart' exists")
-        else:
-            print("Warning: Schema 'walmart' was not created")
-            
-        cur.close()
-        conn.close()
-    except Exception as e:
-        print(f"Failed to create schema: {e}")  
+    cur.close()
+    return conn  # Return the connection for further use
+
     
 def verify_tables(tables, conn):
     """Verify tables exist and show their row counts."""
@@ -94,7 +92,7 @@ def verify_tables(tables, conn):
     
     cur.close()
 
-def load_csv_to_table(conn, csv_path, table_name):
+def truncate_load_csv_to_table(conn, csv_path, table_name):
     """Load data from CSV file to PostgreSQL table."""
     print(f'Loading data for {table_name}')
     
@@ -108,17 +106,19 @@ def load_csv_to_table(conn, csv_path, table_name):
         
         # Get the table schema columns to ensure correct order
         cur = conn.cursor()
+        cur.execute(f"TRUNCATE TABLE {table_name} CASCADE;")
         cur.execute(f"""
             SELECT column_name 
             FROM information_schema.columns 
             WHERE table_schema = 'walmart' 
             AND table_name = '{table_name}'
-            AND column_name NOT IN ('created_at', 'updated_at')
+            AND column_name NOT IN ('created_at', 'updated_at', 'transaction_id', 'customer_id')
             ORDER BY ordinal_position;
         """)
         schema_columns = [col[0] for col in cur.fetchall()]
         
         # Reorder and select only columns that exist in schema
+        df.columns = df.columns.str.lower()
         df = df[schema_columns]
         
         # Dynamically setting the number of columns
@@ -126,7 +126,7 @@ def load_csv_to_table(conn, csv_path, table_name):
         placeholders_str = '(' + ', '.join(['%s'] * len(schema_columns)) + ')'  
 
         
-        batch_size = len(df) // 2
+        batch_size = 5000
         for i in range(0, len(df), batch_size):
             batch = df.iloc[i:i+batch_size].itertuples(index=False, name=None)
             args_str = b','.join(
@@ -138,24 +138,17 @@ def load_csv_to_table(conn, csv_path, table_name):
             conn.commit()
         
         cur.close()
-        print(f"Successfully loaded data from {csv_path} to {table_name}")
+        print(f"Successfully loaded data to {table_name}")
     except Exception as e:
-        print(f"Failed to load data from {csv_path} to {table_name}: {e}")
+        print(f"Failed to load data to {table_name}: {e}")
         raise
     
-
-def load_all_with_customer_lookup(tables):
-    conn = connect_to_db()
+def load_customer_lookup(conn):
+    """Create a lookup table for customer IDs for transaction table PK."""
     cur = conn.cursor()
     
-    cur.execute("SET search_path TO walmart;")
+    cur.execute("TRUNCATE TABLE customers CASCADE;")
     
-    #Load demographics and products data 
-    demographic_tables = tables[:3]
-    for table in demographic_tables:
-        cur.execute(f"TRUNCATE TABLE {table};")
-        load_csv_to_table(conn, f'/Users/macos/Personal_projects/Portfolio/Project_1_Walmart/Walmart_sim/data_source/agm_output/{table}.csv', table)
-
     #Populate customers lookup table with data from cust1 and cust2
     cur.execute("""INSERT INTO customers (external_id, cust_type)
     SELECT unique_id, 'Cust1' FROM cust1_demographics;""")
@@ -165,15 +158,36 @@ def load_all_with_customer_lookup(tables):
     
     cur.execute("SELECT customer_id, external_id, cust_type FROM walmart.customers")
     lookup = {(ext_id, cust_type): cust_id for cust_id, ext_id, cust_type in cur.fetchall()}
+    
+    conn.commit()
+    cur.close()
+    
+    return lookup
+    
+
+
+def load_all_with_customer_lookup(conn, tables):
+    # conn = connect_to_db()
+    cur = conn.cursor()
+    cur.execute("SET search_path TO walmart;")
+    
+    #Load demographics and products data 
+    demographic_tables = tables[:3]
+    for table in demographic_tables:
+        truncate_load_csv_to_table(conn, f'/Users/macos/Personal_projects/Portfolio/Project_1_Walmart/Walmart_sim/data_source/agm_output/{table}.csv', table)
+    
+    lookup = load_customer_lookup(conn)
 
     #Loading transactions data
     transaction_df = pd.read_csv('/Users/macos/Personal_projects/Portfolio/Project_1_Walmart/Walmart_sim/data_source/agm_output/transactions.csv')
-    transaction_df['unique_id'] = transaction_df.apply( lambda row: lookup[(row['unique_id'], row['customer_type'])], axis=1)
-    transaction_df.drop(columns = ['customer_type'], inplace = True)
-    load_csv_to_table(conn, transaction_df, 'transactions')
+    transaction_df['unique_id'] = transaction_df.apply( lambda row: lookup[(row['unique_id'], row['cust_type'])], axis=1)
+    transaction_df.drop(columns = ['cust_type'], inplace = True)
+    temp_path = '/tmp/transactions_modified.csv'
+    transaction_df.to_csv(temp_path, index=False)
+    truncate_load_csv_to_table(conn, temp_path, 'transactions')
+    
     conn.commit()
     cur.close()
-    conn.close()
 
 
 
@@ -188,14 +202,13 @@ def main():
             conn = connect_to_db()
             
             print("Setting up database schema...")
-            setup_database()
+            conn = setup_database()
 
+            load_all_with_customer_lookup(conn, tables)
+            print("Data loading completed successfully!")
+            
             # Add verification
             verify_tables(tables, conn)
-            
-        
-            load_all_with_customer_lookup(tables)
-            print("Data loading completed successfully!")
             
     finally:
         conn.close()
