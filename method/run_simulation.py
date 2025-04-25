@@ -17,9 +17,11 @@ def run_simulation():
     print("Running simulation...")
     model.run_model()
     
-    # Export transactions
+    # Export data
     print("Exporting transaction data...")
     model.export_transactions()
+    model.export_demographics()
+    model.export_products() 
     
     # Print summary
     print("\nSimulation Summary:")
@@ -27,11 +29,9 @@ def run_simulation():
     print(f"Final date: {model.current_date.strftime('%m/%d/%Y')}")
     
     # Load and print transaction counts
-    cust1_transactions = pd.read_csv('/Users/macos/Personal_projects/Portfolio/Project_1_Walmart/Walmart_sim/data_source/cust1_transactions.csv')
-    cust2_transactions = pd.read_csv('/Users/macos/Personal_projects/Portfolio/Project_1_Walmart/Walmart_sim/data_source/cust2_transactions.csv')
+    all_transactions = pd.read_csv('/Users/macos/Personal_projects/Portfolio/Project_1_Walmart/Walmart_sim/data_source/agm_output/transactions.csv')
     
-    print(f"\nTotal Cust1 transactions: {len(cust1_transactions)}")
-    print(f"Total Cust2 transactions: {len(cust2_transactions)}")
+    print(f"\nTotal transactions: {len(all_transactions)}")
     
     # Get the collected data
     model_data = model.datacollector.get_model_vars_dataframe()

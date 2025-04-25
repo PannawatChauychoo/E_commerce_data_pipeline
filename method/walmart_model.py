@@ -171,12 +171,13 @@ class WalmartModel(Model):
                             'product_id': purchase[0],
                             'unit_price': purchase[1],
                             'quantity': purchase[2],
-                            'date': purchase[3],
-                            'category': category
+                            'date_purchased': purchase[3],
+                            'category': category,
+                            'cust_type': 'Cust1' if isinstance(agent, Cust1) else 'Cust2'
                     })
 
         # Convert to DataFrames and export
-        pd.DataFrame(all_transactions).to_csv('/Users/macos/Personal_projects/Portfolio/Project_1_Walmart/Walmart_sim/data_source/agm_output/all_transactions.csv', index=False)
+        pd.DataFrame(all_transactions).to_csv('/Users/macos/Personal_projects/Portfolio/Project_1_Walmart/Walmart_sim/data_source/agm_output/transactions.csv', index=False)
 
     def export_demographics(self):
         """Export customer demographics to CSV files."""

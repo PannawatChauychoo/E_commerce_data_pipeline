@@ -350,7 +350,7 @@ class Cust2(Agent):
         unit_price = chosen_product.unit_price
         actual_quantity = min(quantity, chosen_product.stock)
         total_price = unit_price * actual_quantity
-        print(f"{self.unique_id} buying {product_id} with quantity {actual_quantity}")
+        # print(f"{self.unique_id} buying {product_id} with quantity {actual_quantity}")
         
         if self.budget - total_price >= -5:
             self.purchase_history[choice].append((product_id, unit_price, actual_quantity, current_date))
