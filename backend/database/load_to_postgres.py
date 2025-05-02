@@ -45,20 +45,13 @@ def setup_database():
     conn = connect_to_db()
     cur = conn.cursor()
     
-    # Check if schema exists
-    cur.execute("SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'walmart';")
-    schema_exists = cur.fetchone() is not None
-    
-    if not schema_exists:
-        # Read and execute schema file only if schema doesn't exist
-        with open('backend/database/schema.sql', 'r') as f:
-            schema_sql = f.read()
+    with open('backend/database/schema.sql', 'r') as f:
+        schema_sql = f.read()
         cur.execute(schema_sql)
         conn.commit()
-        print("Schema 'walmart' created successfully")
-    else:
-        print("Schema 'walmart' already exists, skipping creation")
-        
+    
+    print("Schema 'walmart' created successfully")
+
     cur.close()
     return conn  # Return the connection for further use
 
@@ -92,7 +85,7 @@ def verify_tables(tables, conn):
     
     cur.close()
 
-def truncate_load_csv_to_table(conn, csv_path, table_name):
+def truncate_load_csv_to_table(conn, csv_path, table_name, schema="walmart"):
     """Load data from CSV file to PostgreSQL table."""
     print(f'Loading data for {table_name}')
     
@@ -106,11 +99,11 @@ def truncate_load_csv_to_table(conn, csv_path, table_name):
         
         # Get the table schema columns to ensure correct order
         cur = conn.cursor()
-        cur.execute(f"TRUNCATE TABLE {table_name} CASCADE;")
+        cur.execute(f"TRUNCATE TABLE {schema}.{table_name} CASCADE;")
         cur.execute(f"""
             SELECT column_name 
             FROM information_schema.columns 
-            WHERE table_schema = 'walmart' 
+            WHERE table_schema = '{schema}'
             AND table_name = '{table_name}'
             AND column_name NOT IN ('created_at', 'updated_at', 'transaction_id', 'customer_id')
             ORDER BY ordinal_position;
@@ -133,30 +126,30 @@ def truncate_load_csv_to_table(conn, csv_path, table_name):
                 cur.mogrify(placeholders_str, row) for row in batch).decode('utf-8')
             
             # Add schema prefix to table name
-            insert_query = f"INSERT INTO {table_name} ({columns_str}) VALUES {args_str}"
+            insert_query = f"INSERT INTO {schema}.{table_name} ({columns_str}) VALUES {args_str}"
             cur.execute(insert_query)
             conn.commit()
         
         cur.close()
-        print(f"Successfully loaded data to {table_name}")
+        print(f"Successfully loaded data to {schema}.{table_name}")
     except Exception as e:
-        print(f"Failed to load data to {table_name}: {e}")
+        print(f"Failed to load data to {schema}.{table_name}: {e}")
         raise
     
-def load_customer_lookup(conn):
+def load_customer_lookup(conn, table="customers_lookup", schema="walmart"):
     """Create a lookup table for customer IDs for transaction table PK."""
     cur = conn.cursor()
     
-    cur.execute("TRUNCATE TABLE customers CASCADE;")
+    cur.execute(f"TRUNCATE TABLE {schema}.{table} CASCADE;")
     
     #Populate customers lookup table with data from cust1 and cust2
-    cur.execute("""INSERT INTO customers (external_id, cust_type)
+    cur.execute(f"""INSERT INTO {schema}.{table} (external_id, cust_type)
     SELECT unique_id, 'Cust1' FROM cust1_demographics;""")
     
-    cur.execute("""INSERT INTO customers (external_id, cust_type)
+    cur.execute(f"""INSERT INTO {schema}.{table} (external_id, cust_type)
     SELECT unique_id, 'Cust2' FROM cust2_demographics;""")
     
-    cur.execute("SELECT customer_id, external_id, cust_type FROM walmart.customers")
+    cur.execute(f"SELECT customer_id, external_id, cust_type FROM {schema}.{table}")
     lookup = {(ext_id, cust_type): cust_id for cust_id, ext_id, cust_type in cur.fetchall()}
     
     conn.commit()
@@ -194,7 +187,7 @@ def load_all_with_customer_lookup(conn, tables):
 def main():
     # Connect to database
     try:
-        tables = ['cust1_demographics', 'cust2_demographics', 'products', 'transactions', 'customers']
+        tables = ['cust1_demographics', 'cust2_demographics', 'products', 'transactions', 'customers_lookup']
         
         print('Connecting to the database...')
         with connect_to_db() as conn:
@@ -206,6 +199,17 @@ def main():
 
             load_all_with_customer_lookup(conn, tables)
             print("Data loading completed successfully!")
+            
+            print('checking current tables...')
+            cur = conn.cursor()
+            cur.execute("""
+                        SELECT table_schema, table_name
+                        FROM information_schema.tables
+                        WHERE table_schema NOT IN ('pg_catalog','information_schema')
+                        ORDER BY table_schema, table_name;""")
+            print('\nCurrent tables:\n' + '-' * 50)
+            for schema, table in cur.fetchall():
+                print(f"{schema}: {table}")
             
             # Add verification
             verify_tables(tables, conn)
