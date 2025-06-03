@@ -1,0 +1,9 @@
+apache-airflow-providers-fab==2.0.2
+scikit-learn
+numpy==1.26.4
+pandas
+matplotlib
+scipy
+pytest
+fuzzywuzzy
+python-Levenshtein

@@ -1,0 +1,34 @@
+# dbt_project.yml  — starter template
+name: dbt_walmart          # any slug-friendly name
+profile: dbt_walmart       # must match a profile in ~/.dbt/profiles.yml
+version: '1.9.4'           # your project’s semantic version
+config-version: 2          # always 2 for dbt v1+
+model-paths: ["models"]    # where your .sql models live
+
+# Team conventions
+target-path: "target"      # compiled SQL & artifacts
+clean-targets: ["target", "dbt_packages"]
+
+# Default configs per layer
+models:
+  dbt_walmart:
+    
+    staging:
+      +materialized: view
+      +tags: ["raw"]
+    core:
+      +materialized: table
+      +persist_docs: {relation: true, columns: true}
+    marts:
+      +materialized: "{{ 'view' if target.name == 'dev' else 'table' }}"
+      +docs:
+        node_color: "#319f0f"  # colour in docs graph
+    # optional: unit tests folder
+    tests:
+      +schema: test_results
+
+seeds:
+  +schema: reference
+
+on-run-start:
+  - "{{ log('Starting Walmart dbt run at ' ~ run_started_at, info=True) }}"

@@ -1,0 +1,39 @@
+# This defines the source of tables when referenced in models
+
+version: 2
+sources:
+  - name: walmart                       # ← MUST match first arg of source()
+    database: "{{ target.database }}"   # usually your DB
+    schema: "walmart"                   # where the raw table lives
+    tables:
+      - name: transactions              # ← MUST match second arg of source()
+        identifier: transactions        # optional; only if the physical
+                                        # table name differs
+        loaded_at_field: created_at
+        freshness:                      # optional freshness test
+          warn_after: {count: 24, period: hour}
+          error_after: {count: 48, period: hour}
+      - name: cust1_demographics
+        identifier: cust1_demographics
+        loaded_at_field: created_at
+        freshness:
+          warn_after: {count: 24, period: hour}
+          error_after: {count: 48, period: hour}
+      - name: cust2_demographics
+        identifier: cust2_demographics
+        loaded_at_field: created_at
+        freshness:
+          warn_after: {count: 24, period: hour}
+          error_after: {count: 48, period: hour}
+      - name: products
+        identifier: products
+        loaded_at_field: created_at
+        freshness:
+          warn_after: {count: 24, period: hour}
+          error_after: {count: 48, period: hour}
+      - name: customers_lookup
+        identifier: customers_lookup
+        loaded_at_field: created_at
+        freshness:
+          warn_after: {count: 24, period: hour}
+          error_after: {count: 48, period: hour}

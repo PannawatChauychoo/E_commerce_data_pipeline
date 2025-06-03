@@ -1,0 +1,22 @@
+dbt_walmart:  # profile name, usually matches your project
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('DB_HOST') }}"      # your Postgres host
+      port: 5432                            # Postgres port
+      user: "{{ env_var('DB_USER') }}"      # Postgres username
+      pass: "{{ env_var('DB_PASSWORD') }}"  # Postgres password
+      dbname: "{{ env_var('DB_NAME') }}"    # Postgres database name
+      schema: dev_walmart                   # default schema for models (will be created if not exists)
+      threads: 1                            # number of threads for parallelism
+
+    prod:
+      type: postgres
+      host: "{{ env_var('DB_HOST') }}"      # your Postgres host
+      port: 5432                            # Postgres port
+      user: "{{ env_var('DB_USER') }}"      # Postgres username
+      pass: "{{ env_var('DB_PASSWORD') }}"  # Postgres password
+      dbname: "{{ env_var('DB_NAME') }}"    # Postgres database name
+      schema: prod_walmart                  # default schema for models (will be created if not exists)
+      threads: 1                            # number of threads for parallelism

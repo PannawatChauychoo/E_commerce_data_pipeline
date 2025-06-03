@@ -1,0 +1,39 @@
+models:
+  - name: fct_order
+    description: "One row per order with customer segment joined in"
+    columns:
+      - name: transaction_id
+        tests: [unique, not_null]
+      - name: total_amount
+        tests: [not_null]
+
+  - name: dim_cust1
+    description: "One row per customer with customer segment joined in"
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]
+      - name: segment_id
+        tests: [not_null]
+
+  - name: dim_cust2
+    description: "One row per customer with customer segment joined in"
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]
+      - name: segment_id
+        tests: [not_null]
+
+  - name: dim_products
+    description: "One row per product with product category joined in"
+    columns:
+      - name: product_id
+        tests: [unique, not_null]
+  
+  - name: dim_date
+    description: "One row per purchased date in fact table"
+    columns:
+      - name: date_day
+        tests: 
+          - dbt_expectations.expect_column_values_to_be_in_type_list:
+              column_type_list: ['date', 'datetime']
+
