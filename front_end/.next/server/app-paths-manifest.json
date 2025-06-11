@@ -1,8 +1,7 @@
 {
-  "/dashboard/monitoring/page": "app/dashboard/monitoring/page.js",
-  "/dashboard/page": "app/dashboard/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
   "/dashboard/transactions/page": "app/dashboard/transactions/page.js",
+  "/dashboard/trends/page": "app/dashboard/trends/page.js",
   "/docs/page": "app/docs/page.js",
-  "/favicon.ico/route": "app/favicon.ico/route.js",
   "/page": "app/page.js"
 }

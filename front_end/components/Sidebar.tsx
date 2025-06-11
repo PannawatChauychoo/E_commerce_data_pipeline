@@ -36,7 +36,7 @@ const Sidebar = () => {
     {
       icon: LayoutDashboard,
       label: 'Trends',
-      href: '/dashboard'
+      href: '/dashboard/trends'
     },
     {
       icon: FileText,

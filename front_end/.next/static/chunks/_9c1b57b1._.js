@@ -26,7 +26,7 @@ const Header = ()=>{
         },
         {
             name: 'Dashboard',
-            href: '/dashboard'
+            href: '/dashboard/trends'
         },
         {
             name: 'Documentation',
@@ -34,10 +34,7 @@ const Header = ()=>{
         }
     ];
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("header", {
-        style: {
-            backgroundColor: '#3C3D37'
-        },
-        className: "shadow-md sticky top-0 z-50 w-full",
+        className: "bg-gray-800 shadow-md sticky top-0 z-50 w-full",
         children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
             className: "container mx-auto px-4 h-16 flex items-center justify-between text-white",
             children: [
@@ -167,7 +164,7 @@ const Sidebar = ()=>{
         {
             icon: __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$layout$2d$dashboard$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__LayoutDashboard$3e$__["LayoutDashboard"],
             label: 'Trends',
-            href: '/dashboard'
+            href: '/dashboard/trends'
         },
         {
             icon: __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$file$2d$text$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__FileText$3e$__["FileText"],

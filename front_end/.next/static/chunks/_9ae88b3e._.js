@@ -26,7 +26,7 @@ const Header = ()=>{
         },
         {
             name: 'Dashboard',
-            href: '/dashboard'
+            href: '/dashboard/trends'
         },
         {
             name: 'Documentation',

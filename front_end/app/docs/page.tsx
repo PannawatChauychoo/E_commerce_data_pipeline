@@ -40,14 +40,6 @@ export default function DocumentationPage() {
           • Database: PostgreSQL
           • Orchestration: Airflow`
         },
-        {
-          id: "2.2",
-          title: "Database Connection",
-          content: `Connection to PostgreSQL through Tailscale:
-          psql -h 100.97.140.87 -U Pan -d ecommerce_cloud
-          
-          Note: Ensure proper Tailscale configuration and network access before attempting connection.`
-        }
       ]
     },
     {
