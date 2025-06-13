@@ -1,6 +1,7 @@
 // lib/db.ts
-import { Pool } from 'pg';
-export const pg = new Pool({
+import { Pool } from 'pg'
+
+export const pg_pool = new Pool({
   host: process.env.DB_HOST,
   port: Number(process.env.DB_PORT),
   user: process.env.DB_USER,
