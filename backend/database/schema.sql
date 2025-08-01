@@ -1,13 +1,12 @@
 -- Create schema for Walmart simulation data
-CREATE SCHEMA walmart;
 
--- Set search path
-SET search_path TO walmart;
+DROP SCHEMA IF EXISTS walmart CASCADE;
+CREATE SCHEMA IF NOT EXISTS walmart;
 
 -- Customer Type 1 (Walmart Customer) demographics
-CREATE TABLE cust1_demographics (
+CREATE TABLE walmart.cust1 (
     unique_id INTEGER PRIMARY KEY NOT NULL,
-    age VARCHAR(10),
+    age INT,
     gender VARCHAR(10),
     city_category VARCHAR(20),
     stay_in_current_city_years VARCHAR(10),
@@ -19,7 +18,7 @@ CREATE TABLE cust1_demographics (
 );
 
 -- Customer Type 2 (E-commerce) demographics
-CREATE TABLE cust2_demographics (
+CREATE TABLE walmart.cust2 (
     unique_id INTEGER PRIMARY KEY NOT NULL,
     branch VARCHAR(50),
     city VARCHAR(50),
@@ -31,7 +30,7 @@ CREATE TABLE cust2_demographics (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE products (
+CREATE TABLE walmart.products (
     product_id INTEGER PRIMARY KEY NOT NULL,
     category VARCHAR(100) NOT NULL,
     unit_price FLOAT NOT NULL,
@@ -39,23 +38,24 @@ CREATE TABLE products (
     lead_days INTEGER,
     ordering_cost FLOAT,
     holding_cost_per_unit FLOAT,
-    EOQ FLOAT,
+    eoq FLOAT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE customers (
+CREATE TABLE walmart.customers_lookup (
     customer_id SERIAL PRIMARY KEY,
     external_id INTEGER NOT NULL,
     cust_type VARCHAR(10) NOT NULL,
-    UNIQUE (external_id, cust_type)
+    segment_id INTEGER,
+    UNIQUE (external_id, cust_type, segment_id)
 );
 
 -- Combined transactions table for both customer types
-CREATE TABLE transactions (
+CREATE TABLE walmart.transactions (
     transaction_id SERIAL PRIMARY KEY,
-    unique_id INTEGER references customers(customer_id),
-    product_id INTEGER references products(product_id),
+    unique_id INTEGER REFERENCES walmart.customers_lookup (customer_id),
+    product_id INTEGER REFERENCES walmart.products (product_id),
     unit_price FLOAT,
     quantity INTEGER,
     date_purchased DATE,
@@ -64,7 +64,15 @@ CREATE TABLE transactions (
 );
 
 -- Create indexes for better query performance
-CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category);
-CREATE INDEX IF NOT EXISTS idx_transactions_product ON transactions(product_id);
-CREATE INDEX IF NOT EXISTS idx_transactions_customer ON transactions(unique_id);
-CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date_purchased);
+CREATE INDEX IF NOT EXISTS idx_transactions_category ON walmart.transactions (
+    category
+);
+CREATE INDEX IF NOT EXISTS idx_transactions_product ON walmart.transactions (
+    product_id
+);
+CREATE INDEX IF NOT EXISTS idx_transactions_customer ON walmart.transactions (
+    unique_id
+);
+CREATE INDEX IF NOT EXISTS idx_transactions_date ON walmart.transactions (
+    date_purchased
+);

@@ -2,6 +2,7 @@
 node_modules/
 build/
 .env
+.env.*
 
 #Data source 
 data_source/
@@ -67,3 +68,6 @@ next-env.d.ts
 
 #log files 
 *.log
+
+#Executable
+*.sh

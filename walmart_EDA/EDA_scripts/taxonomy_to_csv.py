@@ -36,7 +36,6 @@ PRODUCT_TAXONOMY = {
     'Electronics': {
         'Electronic Accessories': {}
     },
-    'Sports & Outdoors': {},
     'Toys & Entertainment': {
         'Toys': {},
         'Collectibles': {},
@@ -48,7 +47,8 @@ PRODUCT_TAXONOMY = {
         'Auto & Tires': {},
         'Seasonal': {},
         'Shop with Purpose': {},
-        'Subscriptions': {}
+        'Subscriptions': {},
+        'Sports & Outdoors': {}
     }
 }
 
