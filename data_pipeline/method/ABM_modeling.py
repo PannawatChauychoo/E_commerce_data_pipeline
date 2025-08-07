@@ -1,6 +1,7 @@
 import datetime
 import logging
 import math
+import os
 import random
 import re
 from collections import defaultdict
@@ -59,6 +60,11 @@ Solutions:
 - Including all categories: Splitting the probability of purchases of big categories equally among smaller ones
 
 """
+
+
+# Always execute at data_pipeline directory
+ROOT = Path(__file__).resolve().parent.parent
+os.chdir(ROOT)
 
 
 # Configure logging

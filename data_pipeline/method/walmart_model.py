@@ -481,7 +481,7 @@ class WalmartModel(Model):
             print(f"Saving {new_file_path}")
             final_paths.append(new_file_path)
 
-        return final_paths
+        return final_paths, run_id
 
 
 def main():
@@ -507,7 +507,7 @@ def main():
     assert saved_file.exists(), print("Can't find recently saved file")
 
     df_dict = model.save_results_as_df()
-    final_path_list = model.write_results_csv(df_dict)
+    final_path_list, run_id = model.write_results_csv(df_dict)
     for f in final_path_list:
         assert Path(f).exists(), print(f"Cannot find file {f}")
 

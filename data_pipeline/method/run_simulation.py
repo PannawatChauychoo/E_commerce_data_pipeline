@@ -27,11 +27,10 @@ os.chdir(ROOT)
 
 
 def run_simulation(
-    days: int = 1,
-    total_customers_num: int = 500,
-    cust1_2_ratio: float = 0.5,
+    days: int,
+    total_customers_num: int,
+    cust1_2_ratio: float,
     products_num: int = 10,
-    run_mode: str = "prod",
 ):
     """
     Input:
@@ -42,8 +41,9 @@ def run_simulation(
     """
 
     print("Initializing Walmart simulation...")
+    start = dt.datetime.now()
 
-    # Starting the simulation at the latest available date to avoid missing data
+    run_mode = "Prod"
     if run_mode.lower() == "prod":
         print("---- Production Mode ----")
         transaction_folder = Path("./data_source/agm_output_test")
@@ -53,6 +53,7 @@ def run_simulation(
     else:
         return "Invalid mode"
 
+    # Starting the simulation at the latest available date to avoid missing data
     if not transaction_folder.exists() or not any(transaction_folder.iterdir()):
         Path.mkdir(transaction_folder, parents=True, exist_ok=True)
         latest_date = dt.datetime.now()
@@ -111,7 +112,7 @@ def run_simulation(
     assert saved_file.exists(), print("Can't find recently saved file")
 
     df_result_dict = model.save_results_as_df()
-    final_paths = model.write_results_csv(df_result_dict)
+    final_paths, run_id = model.write_results_csv(df_result_dict)
     for f in final_paths:
         assert f.exists(), print(f"Cannot find file {f}")
 
@@ -120,6 +121,17 @@ def run_simulation(
     print(f"Total products sold: {int(model_data['Total Products Sold'].sum())}")
     print(f"Total sales: ${model_data['Total Sales'].sum():.2f}")
     print("\nSimulation completed successfully!")
+    
+    end = dt.datetime.now()
+    duration = end - start
+    total_seconds = duration.total_seconds()
+    hours = total_seconds//3600
+    minutes = total_seconds//60%60
+    seconds = round(total_seconds%60, 2)
+    duration_units = (hours, minutes, seconds)
+    
+    return run_id, duration_units
+
 
 
 def main():
@@ -139,7 +151,6 @@ def main():
         args.customer_num,
         args.customer_ratio,
         args.product_num,
-        args.run_mode,
     )
 
 
