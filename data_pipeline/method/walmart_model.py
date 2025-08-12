@@ -10,8 +10,9 @@ from ABM_modeling import Cust1, Cust2
 from ABM_modeling import Product as ABMProduct
 from ABM_modeling import (get_itinerary_category, getting_segments_dist,
                           sample_from_distribution)
+from helper.datetime_conversion import dt_to_str, str_to_dt
 from helper.id_tracker import IdRegistry
-from helper.save_load import load_agents_from_latest_json, save_agents_to_json
+from helper.save_load import load_agents_from_newest, save_agents
 from mesa import Model
 from mesa.datacollection import DataCollector
 from mesa.space import MultiGrid
@@ -51,9 +52,6 @@ To-do:
 - Should add rollback to previous simulation stage -> remove newest saved files and reversed id-tracking
 """
 
-
-datetime_format_str = "%Y/%m/%d"
-
 # Always execute this file at data_pipeline directory
 ROOT = Path(__file__).resolve().parent.parent
 os.chdir(ROOT)
@@ -69,7 +67,7 @@ class WalmartModel(Model):
     def __init__(
         self,
         start_date: datetime,
-        max_steps: int = 100,
+        max_steps: int = 10,
         n_customers1: int = 100,
         n_customers2: int = 100,
         n_products_per_category: int = 5,
@@ -83,6 +81,7 @@ class WalmartModel(Model):
         self.n_cust2 = n_customers2
         self.n_prod_per_cat = n_products_per_category
         self.mode = mode
+        self.run_id = uuid.uuid4().int % (10**8)
 
         # Id counter
         self.id_reg = IdRegistry(mode=self.mode)
@@ -93,16 +92,30 @@ class WalmartModel(Model):
         # initialize data collectors
         self.datacollector = DataCollector(
             model_reporters={
-                "Current Date": lambda m: m.current_date.strftime(datetime_format_str),
+                "Current Date": lambda m: dt_to_str(m.current_date),
                 "Total Sales": lambda m: sum(
-                    agent.total_sales
+                    sum(agent.total_sales.values())
                     for agent in m.schedule.agents
                     if isinstance(agent, ABMProduct)
                 ),
-                "Total Products Sold": lambda m: sum(
-                    agent.total_sales / agent.unit_price
+                "Total Cust1 Sales for Today": lambda m: sum(
+                    agent.get_total_purchases_by_date(dt_to_str(m.current_date))
                     for agent in m.schedule.agents
-                    if isinstance(agent, ABMProduct)
+                    if isinstance(agent, Cust1)
+                ),
+                "Total Cust2 Sales for Today": lambda m: sum(
+                    agent.get_total_purchases_by_date(dt_to_str(m.current_date))
+                    for agent in m.schedule.agents
+                    if isinstance(agent, Cust2)
+                ),
+                "Total Products Sales for Today": lambda m: sum(
+                    [
+                        v
+                        for agent in m.schedule.agents
+                        if isinstance(agent, ABMProduct)
+                        for k, v in agent.total_sales.items()
+                        if k == dt_to_str(m.current_date)
+                    ]
                 ),
             }
         )
@@ -295,7 +308,7 @@ class WalmartModel(Model):
     def step(self):
         """Advance the model by one day."""
         self.current_date += dt.timedelta(days=1)
-        current_date_str = self.current_date.strftime(datetime_format_str)
+        current_date_str = dt_to_str(self.current_date)
 
         # Get all products
         products = [
@@ -428,6 +441,8 @@ class WalmartModel(Model):
         # Updating for transactions id
         self.id_reg.advance()
 
+        df_metrics = self.datacollector.get_model_vars_dataframe()
+
         # Saving for SQL
         df_trans = pd.DataFrame(all_transactions)
         df_cust1 = pd.DataFrame(cust1_demographics)
@@ -439,6 +454,7 @@ class WalmartModel(Model):
             "cust1": df_cust1,
             "cust2": df_cust2,
             "products": df_product,
+            "metrics": df_metrics,
         }
 
         return final_results_dict
@@ -459,19 +475,19 @@ class WalmartModel(Model):
             path = "./data_source/agm_output"
             print("saving in production folder")
 
-        run_id = uuid.uuid4().int
-        run_ts = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d")
+        run_ts = dt.datetime.now().strftime("%Y%m%d")
         root = Path(path)
         root.mkdir(parents=True, exist_ok=True)
         final_paths = []
 
         for name, df in df_dict.items():
-            # build partition path  e.g. /sim-data/load_dt=2025-06-18/transactions.csv
-            saved_file_path = next(root.glob(f"*{name}.csv"), None)
-            new_file_path = Path(path) / f"run_time={run_ts}/id={run_id}_{name}.csv"
+            # /agm_output_test/run_time=2025-06-18/id=123213_transactions.csv
+            saved_file_path = next(root.glob(f"run_time={run_ts}/*{name}.csv"), None)
+            new_file_path = (
+                Path(path) / f"run_time={run_ts}/id={self.run_id}_{name}.csv"
+            )
 
             if saved_file_path:
-                print(saved_file_path)
                 df.to_csv(path_or_buf=saved_file_path, mode="a", index=False)
                 saved_file_path.rename(new_file_path)
             elif not saved_file_path:
@@ -481,7 +497,7 @@ class WalmartModel(Model):
             print(f"Saving {new_file_path}")
             final_paths.append(new_file_path)
 
-        return final_paths, run_id
+        return final_paths, self.run_id
 
 
 def main():
@@ -493,7 +509,7 @@ def main():
         n_products_per_category=5,
         mode="test",
     )
-    loaded_file, loaded_id_dict = load_agents_from_latest_json(
+    loaded_file, loaded_id_dict, metadata = load_agents_from_newest(
         model, model.class_registry, mode="test"
     )
     if loaded_file and loaded_id_dict:
@@ -503,13 +519,14 @@ def main():
 
     model.initialize_extra_agents()
     model.run_model()
-    saved_file = save_agents_to_json(model, mode="test")
-    assert saved_file.exists(), print("Can't find recently saved file")
 
     df_dict = model.save_results_as_df()
-    final_path_list, run_id = model.write_results_csv(df_dict)
+    final_path_list = model.write_results_csv(df_dict)
     for f in final_path_list:
         assert Path(f).exists(), print(f"Cannot find file {f}")
+
+    saved_file, metadata_file = save_agents(model, mode="test")
+    assert saved_file.exists(), print("Can't find recently saved file")
 
 
 if __name__ == "__main__":

@@ -12,8 +12,8 @@ import data_processor as dp
 import numpy as np
 import pandas as pd
 from fuzzywuzzy import process
-from helper.serialization import \
-    ParquetSerialization  # Serialize agent classes to save them
+from helper.datetime_conversion import dt_to_str, get_component, str_to_dt
+from helper.serialization import Serialization
 from mesa import Agent
 from product_price_table import load_distributions_from_file
 from scipy.stats import gaussian_kde
@@ -77,7 +77,7 @@ logger = logging.getLogger(__name__)  # Use the module's name as the logger name
 logger.setLevel(logging.INFO)  # Ensure the logger lev
 
 
-class Cust1(ParquetSerialization, Agent):
+class Cust1(Serialization, Agent):
     # Setting the attribute data types
     age: int
     gender: str
@@ -176,6 +176,24 @@ class Cust1(ParquetSerialization, Agent):
 
     def __repr__(self):
         return f"Cust1(id:{self.unique_id}, \nage:{self.age}, \ngender:{self.gender}, \ncity_category:{self.city_category}, \nstay_in_current_city_years:{self.stay_in_current_city_years}, \nmarital_status:{self.marital_status}, \nproduct_category:{self.product_category}, \npurchase:{self.purchase})"
+
+    def get_total_purchases_by_date(self, date: str = "0") -> int:
+        """
+        Input:
+            - {category: [(product_id, unit_price, quantity, current_date),...],...}
+            - date: datetime str for purchases in a date | 0 for all purchases
+        Output: {date: total_purchase_value,...}
+        """
+        all_purchases = [p for cat in self.purchase_history.values() for p in cat]
+        if date != 0:
+            all_purchase_by_date = {
+                x[3]: x[1] * x[2] for x in all_purchases if x[3] == date
+            }
+        else:
+            all_purchase_by_date = {x[3]: x[1] * x[2] for x in all_purchases}
+
+        total_purchases = sum(all_purchase_by_date.values())
+        return total_purchases
 
     def _calculate_budget(self) -> float:
         """
@@ -283,7 +301,7 @@ class Cust1(ParquetSerialization, Agent):
         return None, None
 
 
-class Cust2(ParquetSerialization, Agent):
+class Cust2(Serialization, Agent):
     # Setting the attribute data types
     branch: str
     city: str
@@ -305,7 +323,6 @@ class Cust2(ParquetSerialization, Agent):
         cat_dist: dict,
         num_dist: dict,
         model,
-        past_purchases: dict = defaultdict(list),
     ):
         """
         Initialize the customer agent based on e-commerce transaction data.
@@ -359,11 +376,30 @@ class Cust2(ParquetSerialization, Agent):
             commerce_purchase_behavior
         ), f"Cust2: Number of customer attributes ({cat_num}, {num_num}) does not match expected ({len(commerce_demographic_table)}, {len(commerce_purchase_behavior)})"
 
-        self.purchase_history = past_purchases
+        self.purchase_history = defaultdict(
+            list
+        )  # {category: [(product_id, unit_price, quantity, current_date),...],...}
         self.budget = self._calculate_budget()
 
     def __repr__(self):
         return f"Cust2(id:{self.unique_id}, \nbranch:{self.branch}, \ncity:{self.city}, \ncustomer_type:{self.customer_type}, \ngender:{self.gender}, \npayment_method:{self.payment_method}, \nproduct_line:{self.product_line}, \nquantity:{self.quantity}, \nunit_price:{self.unit_price}, \ndate:{self.date})"
+
+    def get_total_purchases_by_date(self, date: str = "0") -> int:
+        """
+        Input:
+            - {category: [(product_id, unit_price, quantity, current_date),...],...}
+            - date: datetime str for purchases in a date | 0 for all purchases
+        Output: {date: total_purchase_value,...}
+        """
+        all_purchases = [p for cat in self.purchase_history.values() for p in cat]
+        if date != 0:
+            all_purchase_by_date = {
+                x[3]: x[1] * x[2] for x in all_purchases if x[3] == date
+            }
+        else:
+            all_purchase_by_date = {x[3]: x[1] * x[2] for x in all_purchases}
+        total_purchase_value = sum(all_purchase_by_date.values())
+        return total_purchase_value
 
     def get_quantity(self) -> int:
         """Get quantity from either gaussian kde or categorical distribution."""
@@ -483,12 +519,12 @@ class Cust2(ParquetSerialization, Agent):
     def step(self, choice: str, product_list: list, current_date: str):  # type: ignore
         """
         Update customer behavior and preferences.
-        date: mm/dd/yyyy
+        date: YYYYMMDD
         """
 
         self.budget = self._calculate_budget()
         visit_dates = self.get_mostcommon_date()
-        date = current_date.split("/")[1]
+        date = get_component(current_date, "day")
 
         if date in visit_dates:
             product_id, unit_price, quantity = self.make_purchase(
@@ -496,10 +532,11 @@ class Cust2(ParquetSerialization, Agent):
             )
             if product_id is not None and quantity is not None:
                 return product_id, quantity
+
         return None, None
 
 
-class Product(ParquetSerialization, Agent):
+class Product(Serialization, Agent):
     def __init__(
         self,
         unique_id: int,
@@ -528,12 +565,12 @@ class Product(ParquetSerialization, Agent):
         self.stock = max(int(self.EOQ), 100)
         self.pending_restock_orders = []  # List of (arrival_date, quantity)
 
-        self.daily_sales = 0
-        self.total_sales = 0
+        self.daily_sales: float = 0.0
+        self.total_sales = defaultdict(float)  # {date: total_sales,...}
 
     def __repr__(self):
         """For printing the product agent"""
-        return f"Product({self.unique_id}, {self.product_category}, {self.unit_price}, {self.annual_demand})"
+        return f"Id: {self.unique_id} \nCategory: {self.product_category} \nPrice: {self.unit_price} \nDemand: {self.annual_demand} \nStock: {self.stock} \nDaily Sales: {self.daily_sales} \nTotal Sales: {sum(self.total_sales.values())}"
 
     def place_restock_order(self, current_date: datetime.datetime):
         """Place a restock order if stock is below threshold."""
@@ -574,11 +611,9 @@ class Product(ParquetSerialization, Agent):
         """Update product state for the current day."""
         self.place_restock_order(current_date)
         self.fulfill_restock_orders(current_date)
-        self.total_sales += self.daily_sales
+        current_date_str = dt_to_str(current_date)
+        self.total_sales[current_date_str] += self.daily_sales
         self.daily_sales = 0  # Reset daily sales at the end of each day
-
-
-wd = str(Path(__file__).parent)
 
 
 # Helper functions
@@ -623,8 +658,12 @@ def getting_segments_dist(
     - segments_cat_dist: Dict mapping segment IDs to their categorical preferences (e.g. product categories)
     - segments_num_dist: Dict mapping segment IDs to their numerical distributions (e.g. spending patterns)
     """
+    import warnings
 
-    customer_segments_dist, col = dp.get_dataset_distribution(path)
+    with warnings.catch_warnings():
+        # RuntimeWarning -> some values in numpy array is 0 or NaN but ignore for now
+        warnings.filterwarnings("ignore", category=RuntimeWarning, module=r".*scipy.*")
+        customer_segments_dist, col = dp.get_dataset_distribution(path)
     segments_dist = {int(k): v[0] for k, v in customer_segments_dist.items()}
     segments_cat_dist = {int(k): v[1] for k, v in customer_segments_dist.items()}
     segments_num_dist = {int(k): v[2] for k, v in customer_segments_dist.items()}
@@ -655,7 +694,7 @@ def map_cutomerpref_to_all_categories(
     - Convert all keys to lowercase and remove whitespace
     """
     # Read product price table to get all categories
-    price_table = pd.read_csv(wd + "/../data_source/product_price_table.csv")
+    price_table = pd.read_csv("./data_source/product_price_table.csv")
 
     # Getting the main keys and their sub categories in a dict
     categories_dict = {}
@@ -747,7 +786,7 @@ def main():
     # Building the customer agents
     logger.info("Initializing customer agents...")
     segments_dist, segments_cat_dist, segments_num_dist = getting_segments_dist(
-        wd + "/../data_source/Walmart_cust.csv"
+        "./data_source/Walmart_cust.csv"
     )
     first_cust = Cust1(
         unique_id=1,
@@ -760,7 +799,7 @@ def main():
     logger.info(f"Created Cust1 with budget: {first_cust.budget}")
 
     segments_dist2, segments_cat_dist2, segments_num_dist2 = getting_segments_dist(
-        wd + "/../data_source/Walmart_commerce.csv"
+        "./data_source/Walmart_commerce.csv"
     )
     first_cust2 = Cust2(
         unique_id=1,
@@ -774,7 +813,7 @@ def main():
 
     # Building the product agents
     logger.info("Initializing product agents...")
-    product_dist_path = wd + "/../data_source/category_kde_distributions.npz"
+    product_dist_path = "./data_source/category_kde_distributions.npz"
     product_dist_dict = load_distributions_from_file(product_dist_path)
 
     # Create product instances
@@ -814,12 +853,11 @@ def main():
     # Print first few items to verify
     string = "First 3 product instances:"
     for i in range(min(3, len(item_list))):
-        string += "\n" + str(item_list[i])
+        string += "\n" + str(item_list[i]) + "\n"
     logger.info(string)
 
     # Making purchases
     beauty_products = get_itinerary_category("personal care", item_list)
-    logger.info(f"Beauty products: {beauty_products}")
 
     product_id, unit_price, quantity = first_cust.make_purchase(
         choice="personal care",
@@ -827,7 +865,7 @@ def main():
         current_date="01/01/2024",
     )
     logger.info(
-        f"Product ID: {product_id}, Unit Price: {unit_price}, Quantity: {quantity}"
+        f"Example purchase: \nProduct ID: {product_id} \nUnit Price: {unit_price} \nQuantity: {quantity} \n"
     )
 
     # Updating the product sales
