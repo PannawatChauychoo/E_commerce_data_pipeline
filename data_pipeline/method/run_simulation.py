@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 import numpy as np
-from helper.datetime_conversion import dt_to_str, str_to_dt
+from helper.datetime_conversion import str_to_dt
 from helper.save_load import load_agents_from_newest, save_agents
 from walmart_model import WalmartModel
 
@@ -47,6 +47,7 @@ def run_simulation(
     cust1_2_ratio: float,
     start_date: str = "Empty",
     products_num: int = 10,
+    mode: str = "test",
 ):
     """
     Input:
@@ -60,12 +61,12 @@ def run_simulation(
     print("Initializing Walmart simulation...")
     start = dt.datetime.now()
 
-    run_mode = "Prod"
-    if run_mode.lower() == "prod":
-        print("---- Production Mode ----")
-        transaction_folder = Path("./data_source/agm_output_test")
-    elif run_mode.lower() == "test":
+    run_mode = mode.lower()
+    if run_mode == "test":
         print("---- Test Mode ----")
+        transaction_folder = Path("./data_source/agm_output_test")
+    elif run_mode == "prod":
+        print("---- Production Mode ----")
         transaction_folder = Path("./data_source/agm_output")
     else:
         return "Invalid mode"
@@ -80,24 +81,10 @@ def run_simulation(
             print("Starting from today!")
             latest_date = dt.datetime.now()
     else:
-        # Problem is the simulated date and the date on the folder is different
-        # Fix:
-        subfolders = [f for f in transaction_folder.iterdir() if f.is_dir()]
-        latest_folder = str(max(subfolders, key=lambda x: str(x).split("=")[-1]))
-        latest_date = latest_folder.split("=")[-1]
-        today = dt.datetime.now()
-        if latest_date == dt_to_str(today):
-            run_again = input(
-                "Already run for the day. Do you want to run again? (y/n)"
-            )
-            if run_again.lower() == "y":
-                latest_date = today
-            elif run_again.lower() == "n":
-                return print("See you tomorrow!")
-            else:
-                return print("Invalid response")
-        else:
-            latest_date = str_to_dt(latest_date)
+        latest_date = start_date
+        print(
+            "Start date for simulation will automatically continue from the latest simulation."
+        )
 
     # Setting up the model
     cust1_n = int(int(total_customers_num) * float(cust1_2_ratio))
@@ -110,7 +97,7 @@ def run_simulation(
         n_products_per_category=int(products_num),
         mode=run_mode,
     )
-
+    #
     # Loading past agent state
     loaded_file, loaded_id_dict, metadata = load_agents_from_newest(
         model, model.class_registry, mode=run_mode
@@ -145,10 +132,9 @@ def run_simulation(
 
     # Get the collected data
     model_data = model.datacollector.get_model_vars_dataframe()
-    print(f"Total products sold: {int(model_data['Total Products Sales for Today'])}")
-    print(f"Total Cust1 sales: ${model_data['Total Cust1 Sales for Today']}")
-    print(f"Total Cust2 sales: ${model_data['Total Cust2 Sales for Today']}")
-    print(f"Total sales: ${model_data['Total Sales']}")
+    print(f"Total products sold: {sum(model_data['Total_Products_Sales'])}")
+    print(f"Total Cust1 sales: ${sum(model_data['Total_Cust1_Sales'])}")
+    print(f"Total Cust2 sales: ${sum(model_data['Total_Cust2_Sales'])}")
     print("\nSimulation completed successfully!")
 
     end = dt.datetime.now()
@@ -175,6 +161,7 @@ def main():
     parser.add_argument("customer_num", type=int)
     parser.add_argument("customer_ratio", type=float)
     parser.add_argument("product_num", type=int)
+    parser.add_argument("run_mode", type=str)
 
     args = parser.parse_args()
     run_simulation(
@@ -183,6 +170,7 @@ def main():
         total_customers_num=args.customer_num,
         cust1_2_ratio=args.customer_ratio,
         products_num=args.product_num,
+        mode=args.run_mode,
     )
 
 

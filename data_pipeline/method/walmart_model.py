@@ -10,7 +10,7 @@ from ABM_modeling import Cust1, Cust2
 from ABM_modeling import Product as ABMProduct
 from ABM_modeling import (get_itinerary_category, getting_segments_dist,
                           sample_from_distribution)
-from helper.datetime_conversion import dt_to_str, str_to_dt
+from helper.datetime_conversion import dt_to_str
 from helper.id_tracker import IdRegistry
 from helper.save_load import load_agents_from_newest, save_agents
 from mesa import Model
@@ -74,7 +74,7 @@ class WalmartModel(Model):
         mode: str = "test",
     ):
         self.schedule = RandomActivation(self)
-        self.max_steps = int(max_steps)
+        self.max_steps = max_steps
         self.current_date = start_date
         self.grid = MultiGrid(1, 1, torus=False)
         self.n_cust1 = n_customers1
@@ -93,22 +93,22 @@ class WalmartModel(Model):
         self.datacollector = DataCollector(
             model_reporters={
                 "Current Date": lambda m: dt_to_str(m.current_date),
-                "Total Sales": lambda m: sum(
+                "Total_Cummulative_Sales": lambda m: sum(
                     sum(agent.total_sales.values())
                     for agent in m.schedule.agents
                     if isinstance(agent, ABMProduct)
                 ),
-                "Total Cust1 Sales for Today": lambda m: sum(
+                "Total_Cust1_Sales": lambda m: sum(
                     agent.get_total_purchases_by_date(dt_to_str(m.current_date))
                     for agent in m.schedule.agents
                     if isinstance(agent, Cust1)
                 ),
-                "Total Cust2 Sales for Today": lambda m: sum(
+                "Total_Cust2_Sales": lambda m: sum(
                     agent.get_total_purchases_by_date(dt_to_str(m.current_date))
                     for agent in m.schedule.agents
                     if isinstance(agent, Cust2)
                 ),
-                "Total Products Sales for Today": lambda m: sum(
+                "Total_Products_Sales": lambda m: sum(
                     [
                         v
                         for agent in m.schedule.agents
@@ -227,49 +227,66 @@ class WalmartModel(Model):
 
     def check_load_match_index(self):
         """
-        Check the added agents match the background index generation.
-        Used the  to check all agent classes.
+        Verify the number of agents loaded for each class matches the ID ranges.
 
-        Input:
-            - self.class_registry: {agent_class_name: agent_class_obj,...}
-            - self.id_reg.get_id_range: {agent_class_name: [lower_bound, upper_bound],...}
+        Inputs:
+            - self.class_registry: {class_name: class_obj, ...}
+            - self.id_reg.get_id_range(): {class_name: [lower_inclusive, upper_inclusive], ...}
         Output:
-            - loaded_mistmatch: {class_name: int(agent id - current agents)} | None if all matches
+            - loaded_counts: {class_name: int}  # actual loaded agents per class
+        Raises:
+            - Exception with details if any class mismatches
         """
-
-        # check if agent id within the range for each class
         id_range = self.id_reg.get_id_range()
+        loaded_counts = {}
+        mismatches = []
 
-        current_agent_dict = {}
         for clss_name, clss_obj in self.class_registry.items():
-            lower_id_bound, upper_id_bound = id_range[clss_name]
-            correctly_loaded_agents = [
-                p
-                for p in self.schedule.agents
-                if isinstance(p, clss_obj)
-                and lower_id_bound <= p.unique_id <= upper_id_bound
-            ]
-            current_agent_dict[clss_name] = len(correctly_loaded_agents)
+            if clss_name not in id_range:
+                mismatches.append(f"{clss_name}: missing id range")
+                continue
 
-        print(id_range)
-        print(current_agent_dict)
-        # comparing agent id count with the number of loaded agent in the model
-        loaded = {}
-        for k, v in id_range.items():
-            id_count = v[1] - v[0]
+            lower, upper = id_range[clss_name]
 
-            if id_count == current_agent_dict[k]:
-                print(f"{k}: #id and #current agents matches")
-                loaded[k] = id_count
+            # expected count from inclusive range [lower, upper]
+            expected = max(0, upper - lower)
+
+            # actual agents loaded with IDs inside the inclusive range
+            if upper >= lower:
+                actual = sum(
+                    1
+                    for p in self.schedule.agents
+                    if isinstance(p, clss_obj) and lower <= p.unique_id <= upper
+                )
             else:
-                raise Exception(f"{k}: Mismatch {id_count} vs {current_agent_dict[k]}")
+                # No IDs assigned yet => expect 0, actual must be 0
+                actual = sum(1 for p in self.schedule.agents if isinstance(p, clss_obj))
 
-        return loaded
+            loaded_counts[clss_name] = actual
+
+            if expected != actual:
+                current_id = self.id_reg.get_current_id(clss_name)  # could be None
+                mismatches.append(
+                    f"{clss_name}: expected {expected} (IDs {lower}..{upper}), "
+                    f"found {actual}. current_id={current_id}"
+                )
+
+        if mismatches:
+            raise Exception(
+                "ID/agent count mismatch:\n  - " + "\n  - ".join(mismatches)
+            )
+
+        # Optional: success logs
+        for k, v in loaded_counts.items():
+            print(f"{k}: #ids and #current agents match ({v})")
+
+        return loaded_counts
 
     def initialize_extra_agents(self):
         # Output: {'Cust1': [id_count, model_loaded_agents],...}
         print("Preload check...")
         loaded = self.check_load_match_index()
+        print("All id matches!\n")
 
         # Initialize customers based on previous run agents and new required agents
         diff1 = int(self.n_cust1) - int(loaded["Cust1"])
@@ -321,7 +338,7 @@ class WalmartModel(Model):
             if isinstance(agent, (Cust1, Cust2)):
                 choosen_category = agent.get_category_preference()
                 category_products = get_itinerary_category(choosen_category, products)
-                product_id, quantity = agent.step(
+                product_id, unit_price, quantity = agent.step(
                     choice=choosen_category,
                     product_list=category_products,
                     current_date=current_date_str,
@@ -376,12 +393,13 @@ class WalmartModel(Model):
         cust1_demographics = []
         cust2_demographics = []
         products = []
+        run_id = self.run_id
 
         for agent in self.schedule.agents:
             if isinstance(agent, (Cust1, Cust2)):
                 for category, purchases in agent.purchase_history.items():
                     for purchase in purchases:
-                        transaction_id = self.id_reg.next("total_transaction")
+                        transaction_id = self.id_reg.next("Transaction")
                         all_transactions.append(
                             {
                                 "transaction_id": transaction_id,
@@ -394,6 +412,7 @@ class WalmartModel(Model):
                                 "cust_type": (
                                     "Cust1" if isinstance(agent, Cust1) else "Cust2"
                                 ),
+                                "run_id": run_id,
                             }
                         )
 
@@ -408,6 +427,7 @@ class WalmartModel(Model):
                             "stay_in_current_city_years": agent.stay_in_current_city_years,
                             "marital_status": agent.marital_status,
                             "visit_prob": agent.visit_prob,
+                            "run_id": run_id,
                         }
                     )
 
@@ -421,6 +441,7 @@ class WalmartModel(Model):
                             "customer_type": agent.customer_type,
                             "gender": agent.gender,
                             "payment_method": agent.payment_method,
+                            "run_id": run_id,
                         }
                     )
 
@@ -435,6 +456,7 @@ class WalmartModel(Model):
                         "EOQ": agent.EOQ,
                         "stock": agent.stock,
                         "holding_cost_per_unit": agent.holding_cost_per_unit,
+                        "run_id": run_id,
                     }
                 )
 
@@ -488,13 +510,17 @@ class WalmartModel(Model):
             )
 
             if saved_file_path:
-                df.to_csv(path_or_buf=saved_file_path, mode="a", index=False)
+                print(f"Appending to {saved_file_path}")
+                old_df = pd.read_csv(saved_file_path)
+                new_rows = df[~df.iloc[:, 0].isin(old_df.iloc[:, 0])]
+                new_df = pd.concat([old_df, new_rows], ignore_index=True)
+                new_df.to_csv(path_or_buf=saved_file_path, index=False)
                 saved_file_path.rename(new_file_path)
             elif not saved_file_path:
+                print(f"Saving new file to {new_file_path}")
                 new_file_path.parent.mkdir(parents=True, exist_ok=True)
-                df.to_csv(new_file_path, mode="w", index=False)
+                df.to_csv(path_or_buf=new_file_path, mode="w", index=False)
 
-            print(f"Saving {new_file_path}")
             final_paths.append(new_file_path)
 
         return final_paths, self.run_id

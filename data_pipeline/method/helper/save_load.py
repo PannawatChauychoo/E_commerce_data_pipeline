@@ -6,7 +6,7 @@ import gzip
 import json
 import shutil
 from pathlib import Path
-from typing import Any, Dict, Iterable
+from typing import Any, Iterable
 
 from helper.datetime_conversion import dt_to_str, str_to_dt
 
@@ -75,7 +75,7 @@ def save_metadata(
 def save_agents(
     model,
     keep_last: int = KEEP_newest,
-    mode="test",
+    mode: str = "test",
 ):
     """ "
     Dump all agents to Parquet and enforce a file-retention policy.
@@ -148,6 +148,7 @@ def load_agents_from_newest(model, model_agent_classes, mode="test"):
     agent_ids = []
     folder_path = Path(root)
 
+    # Checking if folder is empty or not exists
     if not folder_path.exists():
         return None, [], {}
 
@@ -157,7 +158,7 @@ def load_agents_from_newest(model, model_agent_classes, mode="test"):
 
     newest_run_folder = max(runs)
 
-    print("Loading agents...")
+    print("Getting Metadata...")
     metadata_path = next(newest_run_folder.glob(METADATA_PATTERN), None)
     if metadata_path is None:
         raise FileNotFoundError(f"No metadata found in {str(newest_run_folder)}")
@@ -165,9 +166,18 @@ def load_agents_from_newest(model, model_agent_classes, mode="test"):
     with open(metadata_path, "r", encoding="utf-8") as f:
         metadata = [json.loads(line) for line in f]
     newest_metadata = max(metadata, key=lambda x: x["finished_sim_date"])
-    newest_runid = str(newest_metadata["run_id"])
 
-    newest_agent_file = PATTERN.replace("*", newest_runid)
+    # Setting the user chosen date to the newest simulation date for continuity
+    newest_runid = newest_metadata["run_id"]
+    newest_sim_date = newest_metadata["finished_sim_date"]
+    if newest_sim_date != model.current_date:
+        print(
+            f"Model start date cannot be earlier than {newest_sim_date}. Starting from the latest sim date."
+        )
+        model.current_date = str_to_dt(newest_sim_date)
+
+    print("Loading Agents...")
+    newest_agent_file = PATTERN.replace("*", str(newest_runid))
     agent_folder_path = next(newest_run_folder.glob(newest_agent_file), None)
     print(f"Loading {newest_agent_file} with {newest_metadata}...")
     if agent_folder_path is None:
