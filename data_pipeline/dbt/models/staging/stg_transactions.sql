@@ -8,7 +8,7 @@ SELECT
     quantity,
     date_purchased,
     category,
-    unit_price * quantity AS total_amount,
-    created_at
+    created_at,
+    unit_price * quantity AS total_amount
 FROM {{ source('walmart', 'transactions') }}
 WHERE transaction_id IS NOT NULL
