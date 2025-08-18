@@ -164,9 +164,13 @@ class CustBehavior:
                 (product_id, unit_price, actual_quantity, current_date)
             )
 
+        chosen_product.record_sales(actual_quantity)  # Updating product stock
+
         return product_id, unit_price, actual_quantity
 
-    def get_total_purchases_by_date(self: HasCustAttr, date: str = "") -> float:
+    def get_total_purchases_by_date(
+        self: HasCustAttr, date: str = ""
+    ) -> tuple[float, int]:
         """
         Input:
             - purchase_history: {category: [(product_id, unit_price, quantity, current_date),...],...}
@@ -181,12 +185,18 @@ class CustBehavior:
             total_purchase_value = sum(
                 [float(p[1]) * float(p[2]) for p in all_purchases if p[3] == date]
             )
+            purchases_num = len(
+                [float(p[1]) * float(p[2]) for p in all_purchases if p[3] == date]
+            )
         else:
             total_purchase_value = sum(
                 [float(p[1]) * float(p[2]) for p in all_purchases]
             )
+            purchases_num = len(
+                [float(p[1]) * float(p[2]) for p in all_purchases if p[3] == date]
+            )
 
-        return total_purchase_value
+        return total_purchase_value, purchases_num
 
 
 class Cust1(Serialization, Agent, CustBehavior):
@@ -427,28 +437,6 @@ class Cust2(Serialization, Agent, CustBehavior):
     def __repr__(self):
         return f"Cust2(id:{self.unique_id}, \nbranch:{self.branch}, \ncity:{self.city}, \ncustomer_type:{self.customer_type}, \ngender:{self.gender}, \npayment_method:{self.payment_method}, \nproduct_line:{self.product_line}, \nquantity:{self.quantity}, \nunit_price:{self.unit_price}, \ndate:{self.date})"
 
-    def get_total_purchases_by_date(self, date: str = "") -> float:
-        """
-        Input:
-            - purchase_history: {category: [(product_id, unit_price, quantity, current_date),...],...}
-            - date: datetime str for purchases in a date | 0 for all purchases
-        Output: {date: total_purchase_value,...}
-        """
-        all_purchases = [
-            p for purchases in self.purchase_history.values() for p in purchases
-        ]
-
-        if date != "":
-            total_purchase_value = sum(
-                [float(p[1]) * float(p[2]) for p in all_purchases if p[3] == date]
-            )
-        else:
-            total_purchase_value = sum(
-                [float(p[1]) * float(p[2]) for p in all_purchases]
-            )
-
-        return total_purchase_value
-
     def get_quantity(self) -> int:
         """Get quantity from either gaussian kde or categorical distribution."""
         quantity = int(
@@ -552,7 +540,7 @@ class Product(Serialization, Agent):
         self.EOQ = np.sqrt(
             (2 * self.annual_demand * self.ordering_cost) / self.holding_cost_per_unit
         )
-        self.stock = max(int(self.EOQ), 100)
+        self.stock = min(int(self.EOQ), 100)
         self.pending_restock_orders = []  # List of (arrival_date, quantity)
 
         self.daily_sales: float = 0.0
@@ -566,7 +554,7 @@ class Product(Serialization, Agent):
         """Place a restock order if stock is below threshold."""
         if len(self.pending_restock_orders) == 0:
             if self.stock < self.EOQ / 2:
-                restock_amount = min(int(self.EOQ), 50)
+                restock_amount = max(int(self.EOQ), 50)
                 arrival_date = current_date + timedelta(days=self.lead_days)
                 self.pending_restock_orders.append((arrival_date, restock_amount))
 
@@ -590,11 +578,14 @@ class Product(Serialization, Agent):
         if self.stock >= quantity:
             self.daily_sales += quantity * self.unit_price
             self.stock -= quantity
-        else:
+        elif 0 <= self.stock <= quantity:
             print(
-                f"Product {self.unique_id} is out of stock, selling the remaining {self.stock} out of {quantity}"
+                f"Last: Product {self.unique_id} is out of stock but selling remaining {self.stock}!"
             )
             self.daily_sales += self.stock * self.unit_price
+            self.stock = 0
+        else:
+            print(f"Out: Product {self.unique_id} is out of stock!")
             self.stock = 0
 
     def step(self, current_date: dt.datetime):  # type: ignore

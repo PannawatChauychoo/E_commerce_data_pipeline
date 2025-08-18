@@ -5,6 +5,7 @@ from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from ABM_modeling import Cust1, Cust2
 from ABM_modeling import Product as ABMProduct
@@ -89,7 +90,14 @@ class WalmartModel(Model):
         # class registry for loading
         self.class_registry = {"Cust1": Cust1, "Cust2": Cust2, "Product": ABMProduct}
 
-        # initialize data collectors
+        """
+        Initialize data collectors: 
+        - average of purchases value -- line graph
+        - total daily purchases -- line graph
+        - total number of customers & product -- bar chart
+        - stockout rate -- line graph
+        """
+
         self.datacollector = DataCollector(
             model_reporters={
                 "Current Date": lambda m: dt_to_str(m.current_date),
@@ -99,16 +107,44 @@ class WalmartModel(Model):
                     if isinstance(agent, ABMProduct)
                 ),
                 "Total_Cust1_Sales": lambda m: sum(
-                    agent.get_total_purchases_by_date(dt_to_str(m.current_date))
+                    agent.get_total_purchases_by_date(dt_to_str(m.current_date))[0]
                     for agent in m.schedule.agents
                     if isinstance(agent, Cust1)
                 ),
+                "Avg_Purchases_Cust1": lambda m: np.average(
+                    [
+                        agent.get_total_purchases_by_date(dt_to_str(m.current_date))[0]
+                        / agent.get_total_purchases_by_date(dt_to_str(m.current_date))[
+                            1
+                        ]
+                        for agent in m.schedule.agents
+                        if isinstance(agent, Cust1)
+                        and agent.get_total_purchases_by_date(
+                            dt_to_str(m.current_date)
+                        )[1]
+                        > 0
+                    ]
+                ),
                 "Total_Cust2_Sales": lambda m: sum(
-                    agent.get_total_purchases_by_date(dt_to_str(m.current_date))
+                    agent.get_total_purchases_by_date(dt_to_str(m.current_date))[0]
                     for agent in m.schedule.agents
                     if isinstance(agent, Cust2)
                 ),
-                "Total_Products_Sales": lambda m: sum(
+                "Avg_Purchases_Cust2": lambda m: np.average(
+                    [
+                        agent.get_total_purchases_by_date(dt_to_str(m.current_date))[0]
+                        / agent.get_total_purchases_by_date(dt_to_str(m.current_date))[
+                            1
+                        ]
+                        for agent in m.schedule.agents
+                        if isinstance(agent, Cust2)
+                        and agent.get_total_purchases_by_date(
+                            dt_to_str(m.current_date)
+                        )[1]
+                        > 0
+                    ]
+                ),
+                "Total_Daily_Purchase": lambda m: sum(
                     [
                         v
                         for agent in m.schedule.agents
@@ -117,6 +153,23 @@ class WalmartModel(Model):
                         if k == dt_to_str(m.current_date)
                     ]
                 ),
+                "Total_cust1": lambda m: len(
+                    [a for a in m.schedule.agents if isinstance(a, Cust1)]
+                ),
+                "Total_cust2": lambda m: len(
+                    [a for a in m.schedule.agents if isinstance(a, Cust2)]
+                ),
+                "Total_products": lambda m: len(
+                    [a for a in m.schedule.agents if isinstance(a, ABMProduct)]
+                ),
+                "Stockout": lambda m: len(
+                    [
+                        p
+                        for p in m.schedule.agents
+                        if isinstance(p, ABMProduct) and p.stock == 0
+                    ]
+                )
+                / len([a for a in m.schedule.agents if isinstance(a, ABMProduct)]),
             }
         )
 
@@ -322,6 +375,20 @@ class WalmartModel(Model):
 
         return print("Initialization successful for customer1, customer2 and product")
 
+    def get_current_step_metrics_for_graphs(self):
+        model_data = self.datacollector.get_model_vars_dataframe()
+        latest_row = model_data.iloc[-1]
+        return {
+            "step": self.schedule.steps,
+            "cust1_avg_purchase": latest_row.get("Avg_Purchases_Cust1"),
+            "cust2_avg_purchase": latest_row.get("Avg_Purchases_Cust2"),
+            "total_daily_purchases": latest_row.get("Total_Daily_Purchase"),
+            "total_cust1": latest_row.get("Total_cust1"),
+            "total_cust2": latest_row.get("Total_cust2"),
+            "total_products": latest_row.get("Total_products"),
+            "stockout_rate": latest_row.get("Stockout"),
+        }
+
     def step(self):
         """Advance the model by one day."""
         self.current_date += dt.timedelta(days=1)
@@ -347,35 +414,21 @@ class WalmartModel(Model):
                     # print(f"Product {product_id} purchased with quantity {quantity}")
                     total_purchases[product_id] += int(quantity)
 
-        total_daily_sales = 0
-        total_daily_products = []
-
         # Step though all product agents
         for product in products:
-            id = product.unique_id
-            product_sales = total_purchases.get(id, 0)
-
-            # Update their sales if not empty
-            if product_sales != 0:
-                product.record_sales(product_sales)
-                # print(f"Product {id} total sales: {product_sales}, Unit price: {product.unit_price}")
-
-                total_daily_sales += product.daily_sales
-                total_daily_products.append(product.unique_id)
-
             # Update product state for the current day
             product.step(self.current_date)
-
-        print(f"\nDay {self.schedule.steps} Summary:")
-        print(f"Daily Sales: ${total_daily_sales:.2f}")
-        print(f"Daily Products Sold: {total_daily_products}")
 
         # Update scheduler step count
         self.schedule.steps += 1
         self.datacollector.collect(self)
-
         if self.schedule.steps >= self.max_steps:
             self.running = False
+
+        metrics_dict = self.get_current_step_metrics_for_graphs()
+        print(f"\nDay {self.schedule.steps} Summary:")
+        print(f"Daily Sales: {metrics_dict["total_daily_purchases"]}")
+        print(f"Stockout rate: {metrics_dict["stockout_rate"]}")
 
     def run_model(self):
         """Run the model until completion."""
@@ -472,7 +525,7 @@ class WalmartModel(Model):
         df_product = pd.DataFrame(products)
 
         final_results_dict = {
-            "transaction": df_trans,
+            "transactions": df_trans,
             "cust1": df_cust1,
             "cust2": df_cust2,
             "products": df_product,

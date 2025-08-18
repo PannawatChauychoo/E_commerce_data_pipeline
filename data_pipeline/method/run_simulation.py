@@ -119,22 +119,17 @@ def run_simulation(
     print(f"Starting date: {latest_date}")
     print(f"Final date: {model.current_date.strftime('%m/%d/%Y')}")
 
-    # Saving the agent state and result
-    df_result_dict = model.save_results_as_df()
-    final_paths, run_id = model.write_results_csv(df_result_dict)
-    for f in final_paths:
-        assert f.exists(), print(f"Cannot find file {f}")
-
-    saved_file, metadata = save_agents(model=model, keep_last=5, mode=run_mode)
-    assert saved_file.exists() & metadata.exists(), print(
-        "Can't find recently saved file"
-    )
-
     # Get the collected data
     model_data = model.datacollector.get_model_vars_dataframe()
-    print(f"Total products sold: {sum(model_data['Total_Products_Sales'])}")
+
+    print(f"Total cust1: {model_data.iloc[-1]['Total_cust1']}")
+    print(f"Total cust2: {model_data.iloc[-1]['Total_cust2']}")
+    print(f"Total products sold: {sum(model_data['Total_products'])}")
     print(f"Total Cust1 sales: ${sum(model_data['Total_Cust1_Sales'])}")
     print(f"Total Cust2 sales: ${sum(model_data['Total_Cust2_Sales'])}")
+    print(
+        f"Avg Stockout rate: {sum(model_data['Stockout'])/len(model_data['Stockout'])*100}%"
+    )
     print("\nSimulation completed successfully!")
 
     end = dt.datetime.now()
@@ -146,6 +141,17 @@ def run_simulation(
     duration_units = {"h": hours, "m": minutes, "s": seconds}
     print(
         f"Total time taken were: {duration_units['h']} hours {duration_units['m']} minutes {duration_units['s']} seconds"
+    )
+
+    # Saving the agent state and result
+    df_result_dict = model.save_results_as_df()
+    final_paths, run_id = model.write_results_csv(df_result_dict)
+    for f in final_paths:
+        assert f.exists(), print(f"Cannot find file {f}")
+
+    saved_file, metadata = save_agents(model=model, keep_last=5, mode=run_mode)
+    assert saved_file.exists() & metadata.exists(), print(
+        "Can't find recently saved file"
     )
 
     return run_id, duration_units
