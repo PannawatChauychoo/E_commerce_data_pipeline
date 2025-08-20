@@ -44,8 +44,8 @@ const Header = ()=>{
                         href: "https://www.linkedin.com/in/pan2024/",
                         target: "_blank",
                         rel: "noopener noreferrer",
-                        className: "text-[#948979] hover:text-white transition-colors",
-                        children: "Pan AI"
+                        className: "text-[#DFD0B8] hover:text-white transition-colors",
+                        children: "Walmart E-Commerce Simulation by Pannawat"
                     }, void 0, false, {
                         fileName: "[project]/components/Header.tsx",
                         lineNumber: 19,
@@ -62,7 +62,7 @@ const Header = ()=>{
                         children: navItems.map((item)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("li", {
                                 children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
                                     href: item.href,
-                                    className: "text-md font-semibold transition-colors ".concat(pathname === item.href ? 'text-white underline underline-offset-4' : 'text-[#948979] hover:text-white'),
+                                    className: "text-md font-semibold transition-colors ".concat(pathname === item.href ? 'text-white underline underline-offset-6' : 'text-[#DFD0B8] hover:text-white'),
                                     children: item.name
                                 }, void 0, false, {
                                     fileName: "[project]/components/Header.tsx",
@@ -136,7 +136,7 @@ const SidebarItem = (param)=>{
     const isActive = pathname === href;
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
         href: href,
-        className: "flex items-center gap-3 px-3 py-3 text-md font-medium rounded-lg transition-colors\n        ".concat(isActive ? 'bg-gray-100 text-primary dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-muted-foreground'),
+        className: "flex items-center gap-3 px-3 py-3 text-md font-medium rounded-lg transition-colors\n        ".concat(isActive ? 'bg-[#DFD0B8] text-black' : 'hover:bg-[#DFD0B8] text-muted-foreground'),
         children: [
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(Icon, {
                 className: "w-5 h-5"

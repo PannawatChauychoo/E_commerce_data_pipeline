@@ -73,29 +73,22 @@ export default function DocumentationPage() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="pt-16">
-        <div className="max-w-6xl mx-auto p-8">
-          <div className="mb-12">
-            <h1 className="text-4xl font-bold mb-4">Documentation</h1>
-            <p className="text-lg text-muted-foreground">
-              Comprehensive documentation of the Walmart E-commerce Simulation project architecture and implementation.
-            </p>
-          </div>
-          
+      <main className="bg-[#393E46] pt-8">
+        <div className="max-w-6xl mx-auto p-6">
           <div className="space-y-16">
             {sections.map((section) => (
               <div key={section.id} className="space-y-8">
-                <h2 className="text-3xl font-semibold border-b pb-2" id={section.id}>
+                <h2 className="text-3xl text-[#DFD0B8] font-semibold border-b pb-2" id={section.id}>
                   {section.id}. {section.title}
                 </h2>
-                
+
                 {section.subsections.map((subsection) => (
                   <div key={subsection.id} className="space-y-4">
-                    <h3 className="text-2xl font-medium" id={subsection.id}>
+                    <h3 className="text-2xl text-[#DFD0B8] font-medium" id={subsection.id}>
                       {subsection.id} {subsection.title}
                     </h3>
-                    <Card className="hover:shadow-lg transition-shadow duration-200">
-                      <CardContent className="pt-6">
+                    <Card className="bg-[#DFD0B8] text-[#222831]">
+                      <CardContent >
                         <div className="prose prose-gray dark:prose-invert max-w-none">
                           {subsection.content.split('\n').map((line, i) => (
                             <p key={i} className="whitespace-pre-wrap mb-2 text-base">

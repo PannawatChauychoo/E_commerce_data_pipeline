@@ -4,11 +4,11 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LayoutDashboard, FileText, Activity } from 'lucide-react';
 
-const SidebarItem = ({ 
-  icon: Icon, 
-  label, 
-  href 
-}: { 
+const SidebarItem = ({
+  icon: Icon,
+  label,
+  href
+}: {
   icon: React.ElementType;
   label: string;
   href: string;
@@ -17,12 +17,12 @@ const SidebarItem = ({
   const isActive = pathname === href;
 
   return (
-    <Link 
+    <Link
       href={href}
       className={`flex items-center gap-3 px-3 py-3 text-md font-medium rounded-lg transition-colors
-        ${isActive 
-          ? 'bg-gray-100 text-primary dark:bg-gray-800' 
-          : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-muted-foreground'
+        ${isActive
+          ? 'bg-[#DFD0B8] text-black'
+          : 'hover:bg-[#DFD0B8] text-muted-foreground'
         }`}
     >
       <Icon className="w-5 h-5" />
