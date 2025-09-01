@@ -1,6 +1,10 @@
 
 
 SELECT
-customer_id, external_id, cust_type, segment_id
+    customer_id,
+    cust1_id,
+    cust2_id,
+    segment_id,
+    run_id
 FROM "ecommerce_cloud"."walmart"."customers_lookup"
-WHERE external_id IS NOT NULL AND cust_type IS NOT NULL
+WHERE cust1_id IS NOT NULL OR cust2_id IS NOT NULL

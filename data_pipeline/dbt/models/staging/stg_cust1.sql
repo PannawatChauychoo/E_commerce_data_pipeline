@@ -1,7 +1,7 @@
 {{ config(materialized='view') }}
 
 SELECT
-    unique_id AS customer_id,
+    unique_id,
     segment_id,
     age,
     gender,

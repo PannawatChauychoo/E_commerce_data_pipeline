@@ -13,14 +13,14 @@ sources:
         freshness:                      # optional freshness test
           warn_after: {count: 24, period: hour}
           error_after: {count: 48, period: hour}
-      - name: cust1_demographics
-        identifier: cust1_demographics
+      - name: cust1
+        identifier: cust1
         loaded_at_field: created_at
         freshness:
           warn_after: {count: 24, period: hour}
           error_after: {count: 48, period: hour}
-      - name: cust2_demographics
-        identifier: cust2_demographics
+      - name: cust2
+        identifier: cust2
         loaded_at_field: created_at
         freshness:
           warn_after: {count: 24, period: hour}

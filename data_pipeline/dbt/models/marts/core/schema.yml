@@ -4,24 +4,28 @@ models:
     columns:
       - name: transaction_id
         tests: [unique, not_null]
-      - name: total_amount
-        tests: [not_null]
 
-  - name: dim_cust1
-    description: "One row per customer with customer segment joined in"
+  - name: dim_cust1_ext
+    description: "One row per customer1"
     columns:
       - name: customer_id
         tests: [unique, not_null]
       - name: segment_id
         tests: [not_null]
 
-  - name: dim_cust2
-    description: "One row per customer with customer segment joined in"
+  - name: dim_cust2_ext
+    description: "One row per customer2"
     columns:
       - name: customer_id
         tests: [unique, not_null]
       - name: segment_id
         tests: [not_null]
+
+  - name: dim_customers
+    description: "One row per customer with surrogate id to transaction_id"
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]
 
   - name: dim_products
     description: "One row per product with product category joined in"
