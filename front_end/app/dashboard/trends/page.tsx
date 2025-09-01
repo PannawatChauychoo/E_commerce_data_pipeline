@@ -6,8 +6,8 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export default function PowerBIDashboard() {
   return (
-  <iframe title="final_ecommerce" className='min-h-[680px] w-full border-2-black' src="https://app.powerbi.com/view?r=eyJrIjoiN2ZmZjFiODMtZjUzZS00N2I4LTliMzUtMjU2ZTRmMTVjOGIzIiwidCI6IjlkZGFhY2ExLTM4OWYtNGNiMS1hMTEzLTA4MWJlNmNjMjVmYyIsImMiOjZ9" allowFullScreen={true}>
-  </iframe>
-);
+    //@ts-expect-error
+    <iframe title="final_ecommerce" width="1140" height="541.25" src="https://app.powerbi.com/reportEmbed?reportId=21f7c4fb-54a5-4b16-a73d-77f863402f09&autoAuth=true&ctid=9ddaaca1-389f-4cb1-a113-081be6cc25fc" allowFullScreen="true"></iframe>
+  );
 
 }

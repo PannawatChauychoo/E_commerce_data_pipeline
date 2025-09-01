@@ -47,7 +47,7 @@ def run_simulation(
     cust1_2_ratio: float,
     start_date: str = "Empty",
     products_num: int = 10,
-    mode: str = "test",
+    mode: str = "prod",
 ):
     """
     Input:

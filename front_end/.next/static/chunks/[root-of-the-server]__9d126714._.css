@@ -1894,10 +1894,6 @@
     border-color: var(--color-blue-500);
   }
 
-  .border-blue-500\/50 {
-    border-color: color-mix(in oklab, var(--color-blue-500) 50%, transparent);
-  }
-
   .border-green-500 {
     border-color: var(--color-green-500);
   }
@@ -1912,10 +1908,6 @@
 
   .border-red-500 {
     border-color: var(--color-red-500);
-  }
-
-  .border-red-500\/50 {
-    border-color: color-mix(in oklab, var(--color-red-500) 50%, transparent);
   }
 
   .border-white {
@@ -1938,24 +1930,12 @@
     background-color: #dfd0b8;
   }
 
-  .bg-\[\$393E46\] {
-    background-color: $ 3.40282e38;
-  }
-
   .bg-background {
     background-color: var(--background);
   }
 
   .bg-blue-900 {
     background-color: var(--color-blue-900);
-  }
-
-  .bg-blue-900\/20 {
-    background-color: color-mix(in oklab, var(--color-blue-900) 20%, transparent);
-  }
-
-  .bg-blue-900\/30 {
-    background-color: color-mix(in oklab, var(--color-blue-900) 30%, transparent);
   }
 
   .bg-card {
@@ -2028,14 +2008,6 @@
 
   .bg-red-900 {
     background-color: var(--color-red-900);
-  }
-
-  .bg-red-900\/20 {
-    background-color: color-mix(in oklab, var(--color-red-900) 20%, transparent);
-  }
-
-  .bg-red-900\/30 {
-    background-color: color-mix(in oklab, var(--color-red-900) 30%, transparent);
   }
 
   .bg-secondary {
@@ -2292,10 +2264,6 @@
 
   .text-\[\#222831\] {
     color: #222831;
-  }
-
-  .text-\[\#948979\] {
-    color: #948979;
   }
 
   .text-\[\#DFD0B8\] {

@@ -18,18 +18,11 @@ default_args = {
 with DAG(
     dag_id="ecommerce_dag",
     default_args=default_args,
-    description="ETL Pipeline: simulation → Postgres load → dbt run",
+    description="Postgres load → dbt run",
     schedule="@daily",
     start_date=datetime(2025, 1, 1),
     catchup=False,
 ) as dag:
-
-    # 1. Run your simulation
-    run_simulation = BashOperator(
-        task_id="run_simulation",
-        cwd="/opt/airflow/method",
-        bash_command="python run_simulation.py 1 500 5",
-    )
 
     # 2. Import new data into Postgres
     import_to_postgres = BashOperator(
@@ -42,13 +35,11 @@ with DAG(
     dbt_run = BashOperator(
         task_id="dbt_run",
         cwd="/opt/airflow/dbt",
-        bash_command="""
-/bin/bash dev_dbt_run.sh
-""",
+        bash_command="dev_dbt_run.sh",
     )
 
     # Define the order of execution
-    run_simulation >> import_to_postgres >> dbt_run
+    import_to_postgres >> dbt_run
 
 if __name__ == "__main__":
     dag.test()

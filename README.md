@@ -1,4 +1,4 @@
-# 🛒 Walmart E-Commerce Simulation
+# 🛒  E-Commerce Simulation
 
 ![Main Page](./Main_page.png)
 
@@ -12,28 +12,27 @@
   <img src="https://img.shields.io/badge/Tech-Django-green?style=flat-square&logo=django" />
 </p>
 
-This project is a **portfolio showcase** simulating Walmart’s e-commerce ecosystem.  
-It highlights **data engineering, analytics, and full‑stack development skills** through synthetic data, pipelines, APIs, and dashboards.  
+This project is a **portfolio showcase**, using the modern data engineering tech stack to generate synthetic data using Agent-based simulations.  
 
 ---
 
 ## ✨ What This Project Demonstrates
 
 - **Data Engineering Skills**  
-  Building a warehouse with fact/dim schema, orchestrating pipelines with Airflow, and applying incremental DBT models.  
+  Building OLTP schema for PostgreSQL, orchestrating pipelines with Airflow, and applying incremental DBT models.  
 
 - **Data Science & Analytics**  
-  Simulating customer behavior, segmenting users, and tracking KPIs like CLV, AOV, and stock‑out rates.  
+  Simulating customer behavior, segmenting users, and tracking KPIs like CLV and stock‑out rates in PowerBI.  
 
 - **Full‑Stack Development**  
-  Designing a Django REST API backend and an interactive Next.js dashboard for real‑time monitoring.  
+  Designing a Django REST API backend and an interactive Next.js dashboard for near real‑time visualization.  
 
 ---
 
 ## 🚀 Features
 
-- 📦 **Synthetic Datasets** – customers, products, transactions, commerce metadata  
-- 🗄 **Database + ETL** – PostgreSQL + DBT + Airflow  
+- 📦 **Synthetic Datasets** – Created data models from disparate Kaggle datasets
+- 🗄 **Database + ETL** – PostgreSQL + DBT + Airflow + PowerBI
 - 💻 **Backend** – Django REST API for simulation & analytics  
 - 🎨 **Frontend** – Next.js + Tailwind + ShadcnUI interactive dashboards  
 - 📊 **Dashboards** – CLV, AOV, stockout rate, category spend, time series  

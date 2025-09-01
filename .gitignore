@@ -4,8 +4,9 @@ build/
 .env
 .env.*
 
-#Data source 
+# Proprietary 
 data_source/
+instructions/
 
 # Python
 walmart_EDA/*
@@ -71,3 +72,6 @@ next-env.d.ts
 
 #Executable
 *.sh
+
+#JSON files
+*.json

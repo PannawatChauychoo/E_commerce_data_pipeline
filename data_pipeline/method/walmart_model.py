@@ -11,7 +11,7 @@ from ABM_modeling import Cust1, Cust2
 from ABM_modeling import Product as ABMProduct
 from ABM_modeling import (get_itinerary_category, getting_segments_dist,
                           sample_from_distribution)
-from helper.datetime_conversion import dt_to_str
+from helper.datetime_conversion import dt_to_str, str_to_dt
 from helper.id_tracker import IdRegistry
 from helper.save_load import load_agents_from_newest, save_agents
 from mesa import Model
@@ -67,7 +67,7 @@ class WalmartModel(Model):
 
     def __init__(
         self,
-        start_date: datetime,
+        start_date: dt.datetime,
         max_steps: int = 10,
         n_customers1: int = 100,
         n_customers2: int = 100,
@@ -76,7 +76,9 @@ class WalmartModel(Model):
     ):
         self.schedule = RandomActivation(self)
         self.max_steps = max_steps
-        self.current_date = start_date
+        self.current_date = (
+            str_to_dt(start_date) if isinstance(start_date, str) else start_date
+        )
         self.grid = MultiGrid(1, 1, torus=False)
         self.n_cust1 = n_customers1
         self.n_cust2 = n_customers2
@@ -113,16 +115,21 @@ class WalmartModel(Model):
                 ),
                 "Avg_Purchases_Cust1": lambda m: np.average(
                     [
-                        agent.get_total_purchases_by_date(dt_to_str(m.current_date))[0]
-                        / agent.get_total_purchases_by_date(dt_to_str(m.current_date))[
-                            1
-                        ]
+                        (
+                            agent.get_total_purchases_by_date(
+                                dt_to_str(m.current_date)
+                            )[0]
+                            / agent.get_total_purchases_by_date(
+                                dt_to_str(m.current_date)
+                            )[1]
+                            if isinstance(agent, Cust1)
+                            and agent.get_total_purchases_by_date(
+                                dt_to_str(m.current_date)
+                            )[1]
+                            > 0
+                            else 0
+                        )
                         for agent in m.schedule.agents
-                        if isinstance(agent, Cust1)
-                        and agent.get_total_purchases_by_date(
-                            dt_to_str(m.current_date)
-                        )[1]
-                        > 0
                     ]
                 ),
                 "Total_Cust2_Sales": lambda m: sum(
@@ -132,16 +139,21 @@ class WalmartModel(Model):
                 ),
                 "Avg_Purchases_Cust2": lambda m: np.average(
                     [
-                        agent.get_total_purchases_by_date(dt_to_str(m.current_date))[0]
-                        / agent.get_total_purchases_by_date(dt_to_str(m.current_date))[
-                            1
-                        ]
+                        (
+                            agent.get_total_purchases_by_date(
+                                dt_to_str(m.current_date)
+                            )[0]
+                            / agent.get_total_purchases_by_date(
+                                dt_to_str(m.current_date)
+                            )[1]
+                            if isinstance(agent, Cust2)
+                            and agent.get_total_purchases_by_date(
+                                dt_to_str(m.current_date)
+                            )[1]
+                            > 0
+                            else 0
+                        )
                         for agent in m.schedule.agents
-                        if isinstance(agent, Cust2)
-                        and agent.get_total_purchases_by_date(
-                            dt_to_str(m.current_date)
-                        )[1]
-                        > 0
                     ]
                 ),
                 "Total_Daily_Purchase": lambda m: sum(
@@ -380,13 +392,13 @@ class WalmartModel(Model):
         latest_row = model_data.iloc[-1]
         return {
             "step": self.schedule.steps,
-            "cust1_avg_purchase": latest_row.get("Avg_Purchases_Cust1"),
-            "cust2_avg_purchase": latest_row.get("Avg_Purchases_Cust2"),
-            "total_daily_purchases": latest_row.get("Total_Daily_Purchase"),
-            "total_cust1": latest_row.get("Total_cust1"),
-            "total_cust2": latest_row.get("Total_cust2"),
-            "total_products": latest_row.get("Total_products"),
-            "stockout_rate": latest_row.get("Stockout"),
+            "cust1_avg_purchase": float(latest_row.get("Avg_Purchases_Cust1")),
+            "cust2_avg_purchase": float(latest_row.get("Avg_Purchases_Cust2")),
+            "total_daily_purchases": int(latest_row.get("Total_Daily_Purchase")),
+            "total_cust1": int(latest_row.get("Total_cust1")),
+            "total_cust2": int(latest_row.get("Total_cust2")),
+            "total_products": int(latest_row.get("Total_products")),
+            "stockout_rate": float(latest_row.get("Stockout")),
         }
 
     def step(self):
@@ -429,6 +441,8 @@ class WalmartModel(Model):
         print(f"\nDay {self.schedule.steps} Summary:")
         print(f"Daily Sales: {metrics_dict["total_daily_purchases"]}")
         print(f"Stockout rate: {metrics_dict["stockout_rate"]}")
+
+        return metrics_dict
 
     def run_model(self):
         """Run the model until completion."""
