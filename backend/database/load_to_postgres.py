@@ -1,6 +1,5 @@
 import io
 import os
-from collections import defaultdict
 from pathlib import Path
 
 import pandas as pd
@@ -37,7 +36,11 @@ tables = [
     "products",
     "transactions",
 ]
-result_file_path = "../data_pipeline/data_source/agm_output"
+
+if "airflow" in str(ROOT):
+    result_file_path = ROOT / Path("../data_source/agm_output")
+else:
+    result_file_path = ROOT / Path("../data_pipeline/data_source/agm_output")
 
 
 def connect_to_db():

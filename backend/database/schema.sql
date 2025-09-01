@@ -51,16 +51,19 @@ CREATE TABLE IF NOT EXISTS walmart.customers_lookup (
     cust2_id INTEGER NULL,
     segment_id INTEGER NULL,
     run_id VARCHAR(20),
+
     CONSTRAINT cust1_id_unique UNIQUE (cust1_id),
     CONSTRAINT cust2_id_unique UNIQUE (cust2_id),
 
     CONSTRAINT fk_lookup_cust1 FOREIGN KEY (
         cust1_id
     ) REFERENCES walmart.cust1 (unique_id) ON DELETE CASCADE,
+
     CONSTRAINT fk_lookup_cust2 FOREIGN KEY (
         cust2_id
     ) REFERENCES walmart.cust2 (unique_id) ON DELETE CASCADE,
-    CONSTRAINT custid_exist CHECK ((cust1_id IS NULL) <> (cust2_id IS NULL))
+
+    CONSTRAINT custid_exist CHECK ((cust1_id IS NULL) <> (cust2_id IS NULL)) -- noqa
 );
 
 
