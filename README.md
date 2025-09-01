@@ -41,19 +41,33 @@ This project is a **portfolio showcase**, using the modern data engineering tech
 
 ## 📖 Visual Documentation
 
-![Documentation](./Documentation.png)
+backend
+│   └── api
+│   └── database
+│   └── rest_api
+docs
+data_pipeline
+│   └── dags
+│   └── dbt
+│   └── logs
+│   └── method
+front_end
+│   └── .next
+│   └── app
+│   └── components
+│   └── lib
+│   └── public
+.
+walmart_EDA
+│   └── EDA_scripts
+│   └── Model
 
-- **Backend Flow:**  
-  ![Backend Structure](./backend_structure.png)
-
-- **Frontend Flow:**  
-  ![Frontend Structure](./frontend_structure.png)
 
 ---
 
 ## 🖥 Example Dashboard
 
-![Dashboard](./Dashboard.png)
+[To be updated]
 
 ---
 
