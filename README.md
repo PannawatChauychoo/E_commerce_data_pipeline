@@ -41,6 +41,7 @@ This project is a **portfolio showcase**, using the modern data engineering tech
 
 ## 📖 Visual Documentation
 
+```text
 backend
 │   └── api
 │   └── database
@@ -57,11 +58,10 @@ front_end
 │   └── components
 │   └── lib
 │   └── public
-.
 walmart_EDA
 │   └── EDA_scripts
 │   └── Model
-
+```
 
 ---
 
@@ -103,7 +103,6 @@ walmart_EDA
 - [ ] Add recommendation system (collaborative filtering)  
 - [ ] Extend supply chain simulation (suppliers → warehouses → retail)  
 - [ ] Deploy cloud demo version  
-- [ ] Add Power BI / Grafana connectors  
 
 ---
 
