@@ -2,15 +2,17 @@
 
 ![Main Page](./docs/Main_page.png)
 
+
 <p align="center">
   <img src="https://img.shields.io/badge/Status-Active-success?style=flat-square" />
-  <img src="https://img.shields.io/badge/PostgreSQL-blue?style=flat-square&logo=postgresql" />
-  <img src="https://img.shields.io/badge/Python-yellow?style=flat-square&logo=python" />
-  <img src="https://img.shields.io/badge/DBT-orange?style=flat-square" />
-  <img src="https://img.shields.io/badge/Airflow-lightblue?style=flat-square&logo=apache-airflow" />
-  <img src="https://img.shields.io/badge/Next.js-black?style=flat-square&logo=nextdotjs" />
-  <img src="https://img.shields.io/badge/Django-green?style=flat-square&logo=django" />
+  <img src="https://img.shields.io/badge/PostgreSQL-336791?style=flat-square&logo=postgresql&logoColor=white" />
+  <img src="https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=yellow" />
+  <img src="https://img.shields.io/badge/dbt-FF694B?style=flat-square&logo=dbt&logoColor=white" />
+  <img src="https://img.shields.io/badge/Airflow-017CEE?style=flat-square&logo=apache-airflow&logoColor=white" />
+  <img src="https://img.shields.io/badge/Next.js-000000?style=flat-square&logo=nextdotjs&logoColor=white" />
+  <img src="https://img.shields.io/badge/Django-092E20?style=flat-square&logo=django&logoColor=white" />
 </p>
+
 
 This project is a **portfolio showcase**, using the modern data engineering tech stack to generate synthetic data using Agent-based simulations.  
 
@@ -67,6 +69,10 @@ walmart_EDA
 
 ![Database](./docs/ERD.png)
 
+Tech-
+Tech-
+Tech-
+Tech-
 
 ---
 
