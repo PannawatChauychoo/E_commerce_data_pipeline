@@ -1,6 +1,6 @@
 # 🛒  E-Commerce Simulation
 
-![Main Page](./Main_page.png)
+![Main Page](./docs/Main_page.png)
 
 <p align="center">
   <img src="https://img.shields.io/badge/Status-Active-success?style=flat-square" />
@@ -39,7 +39,7 @@ This project is a **portfolio showcase**, using the modern data engineering tech
 
 ---
 
-## 📖 Visual Documentation
+## 📖 Directory Structure 
 
 ```text
 backend
