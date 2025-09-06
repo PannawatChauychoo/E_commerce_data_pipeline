@@ -2,7 +2,6 @@
 
 ![Main Page](./docs/Main_page.png)
 
-
 <p align="center">
   <img src="https://img.shields.io/badge/Status-Active-success?style=flat-square" />
   <img src="https://img.shields.io/badge/PostgreSQL-336791?style=flat-square&logo=postgresql&logoColor=white" />
@@ -12,7 +11,6 @@
   <img src="https://img.shields.io/badge/Next.js-000000?style=flat-square&logo=nextdotjs&logoColor=white" />
   <img src="https://img.shields.io/badge/Django-092E20?style=flat-square&logo=django&logoColor=white" />
 </p>
-
 
 This project is a **portfolio showcase**, using the modern data engineering tech stack to generate synthetic data using Agent-based simulations.  
 
@@ -41,7 +39,7 @@ This project is a **portfolio showcase**, using the modern data engineering tech
 
 ---
 
-## 📖 Directory Structure 
+## 📖 Directory Structure
 
 ```text
 backend
@@ -69,34 +67,32 @@ walmart_EDA
 
 ![Database](./docs/ERD.png)
 
-Tech-
-Tech-
-Tech-
-Tech-
-
 ---
 
 ## 🖥 Example Dashboard
 
-[To be updated]
+![Dashboard](./docs/PowerBI_dashboard.png)
 
 ---
 
 ## ⚙️ How to Run (Simplified)
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/your-username/walmart-simulation.git
    cd walmart-simulation
    ```
 
 2. **Start backend**
+
    ```bash
    cd backend
    docker-compose up --build
    ```
 
 3. **Start frontend**
+
    ```bash
    cd frontend
    npm install
@@ -120,6 +116,7 @@ Tech-
 ## 👨‍💻 Author
 
 This project was created as part of a **Data Science & Analytics portfolio** to demonstrate:  
+
 - Strong SQL & data modeling foundations  
 - Ability to design scalable data pipelines  
 - Experience in building interactive dashboards and APIs  
