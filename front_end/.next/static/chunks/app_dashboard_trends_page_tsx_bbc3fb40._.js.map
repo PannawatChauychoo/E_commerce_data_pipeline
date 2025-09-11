@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 7, "column": 0}, "map": {"version":3,"sources":["file:///Users/macos/Personal_projects/Portfolio/Project_1_Walmart/Walmart_sim/front_end/app/dashboard/trends/page.tsx"],"sourcesContent":["// app/(dashboard)/trends/page.tsx\n'use client';\n\n// --- ① ask the token endpoint (or skip if using a public iframe)\nconst fetcher = (url: string) => fetch(url).then((r) => r.json());\n\nexport default function PowerBIDashboard() {\n  return (\n    //@ts-expect-error\n    <iframe title=\"final_ecommerce\" width=\"1140\" height=\"541.25\" src=\"https://app.powerbi.com/reportEmbed?reportId=21f7c4fb-54a5-4b16-a73d-77f863402f09&autoAuth=true&ctid=9ddaaca1-389f-4cb1-a113-081be6cc25fc\" allowFullScreen=\"true\"></iframe>\n  );\n\n}\n"],"names":[],"mappings":"AAAA,kCAAkC;;;;;AAClC;;AAEA,kEAAkE;AAClE,MAAM,UAAU,CAAC,MAAgB,MAAM,KAAK,IAAI,CAAC,CAAC,IAAM,EAAE,IAAI;AAE/C,SAAS;IACtB,OACE,kBAAkB;kBAClB,6LAAC;QAAO,OAAM;QAAkB,OAAM;QAAO,QAAO;QAAS,KAAI;QAA4I,iBAAgB;;;;;;AAGjO;KANwB","debugId":null}}]
-}
