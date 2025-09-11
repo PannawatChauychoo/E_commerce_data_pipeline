@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { ThemeToggle } from './theme-toggle';
 
 const Header = () => {
   const pathname = usePathname();
@@ -13,35 +14,46 @@ const Header = () => {
   ];
 
   return (
-    <header className="bg-[#222831] shadow-md sticky top-0 z-50 w-full">
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between text-white">
-        <div className="text-xl font-bold text-white">
+    <header className="bg-card border-b border-border sticky top-0 z-50 w-full backdrop-blur-sm">
+      <div className="container mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="text-lg font-bold">
           <a
             href="https://www.linkedin.com/in/pan2024/"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[#DFD0B8] hover:text-white transition-colors"
+            className="text-foreground hover:text-primary transition-colors duration-200 text-sm sm:text-base"
           >
-            Walmart E-Commerce Simulation by Pannawat
+            Walmart E-Commerce Simulation
+            <span className="text-muted-foreground ml-2 hidden sm:inline">by Pannawat</span>
           </a>
         </div>
-        <nav>
-          <ul className="flex space-x-6">
-            {navItems.map((item) => (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={`text-md font-semibold transition-colors ${pathname === item.href
-                    ? 'text-white underline underline-offset-6'
-                    : 'text-[#DFD0B8] hover:text-white'
-                    }`}
-                >
-                  {item.name}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
+        <div className="flex items-center gap-2">
+          <nav className="hidden md:block">
+            <ul className="flex items-center space-x-1 gap-2">
+              {navItems.map((item) => (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    className={`px-3 py-1 rounded-md text-sm font-medium transition-all duration-200 hover:bg-accent hover:text-accent-foreground ${pathname === item.href
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground'
+                      }`}
+                  >
+                    {item.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+          <ThemeToggle />
+          <div className="md:hidden">
+            <button className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+          </div>
+        </div>
       </div>
     </header>
   );

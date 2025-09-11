@@ -19,14 +19,14 @@ const SidebarItem = ({
   return (
     <Link
       href={href}
-      className={`flex items-center gap-3 px-3 py-3 text-md font-medium rounded-lg transition-colors
+      className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200
         ${isActive
-          ? 'bg-[#DFD0B8] text-black'
-          : 'hover:bg-[#DFD0B8] text-muted-foreground'
+          ? 'bg-primary text-primary-foreground shadow-sm'
+          : 'text-muted-foreground hover:text-foreground hover:bg-accent'
         }`}
     >
-      <Icon className="w-5 h-5" />
-      {label}
+      <Icon className="w-5 h-5 shrink-0" />
+      <span className="truncate">{label}</span>
     </Link>
   );
 };
@@ -51,8 +51,12 @@ const Sidebar = () => {
   ];
 
   return (
-    <div className="w-50 border-r h-screen p-4">
-      <nav className="space-y-2">
+    <div className="w-64 border-r border-border bg-card h-full p-6">
+      <div className="mb-6">
+        <h2 className="text-lg font-semibold text-foreground mb-2">Dashboard</h2>
+        <p className="text-sm text-muted-foreground">Analytics & Monitoring</p>
+      </div>
+      <nav className="space-y-1">
         {items.map((item) => (
           <SidebarItem key={item.href} {...item} />
         ))}

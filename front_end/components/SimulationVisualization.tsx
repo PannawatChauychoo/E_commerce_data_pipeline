@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import {
   ResponsiveContainer,
   LineChart as RLineChart,
@@ -21,16 +22,20 @@ import {
 } from "recharts";
 
 
-/* ---------- Color system ---------- */
-const C = {
-  bg: "#222831",    // darkest (card/chart bg)
-  grid: "#393E46",  // subdued grid
-  axis: "#DFD0B8",  // light text/ticks
-  accent1: "#FBBF24", // amber-400
-  accent2: "#F97316", // orange-500
-  accent3: "#EF4444", // red-500
-  tipBg: "#393E46",
-  tipBorder: "#948979",
+/* ---------- Updated Color system using CSS custom properties ---------- */
+const getChartColors = () => {
+  if (typeof window === 'undefined') return {};
+  const style = getComputedStyle(document.documentElement);
+  return {
+    bg: `hsl(${style.getPropertyValue('--card')})`,
+    grid: `hsl(${style.getPropertyValue('--border')})`,
+    axis: `hsl(${style.getPropertyValue('--foreground')})`,
+    accent1: `hsl(${style.getPropertyValue('--chart-1')})`,
+    accent2: `hsl(${style.getPropertyValue('--chart-2')})`,
+    accent3: `hsl(${style.getPropertyValue('--chart-3')})`,
+    tipBg: `hsl(${style.getPropertyValue('--popover')})`,
+    tipBorder: `hsl(${style.getPropertyValue('--border')})`,
+  };
 };
 
 /* ---------- Types ---------- */
@@ -55,17 +60,18 @@ type StepMetricsRaw = {
 };
 
 
-// Choosing colors for barchart
+// Choosing colors for barchart using CSS custom properties
 const getBarColor = (name: string) => {
+  const colors = getChartColors();
   switch (name) {
     case "Customers1":
-      return C.accent2; // "#F97316" - Orange-500
+      return colors.accent2;
     case "Customers2":
-      return C.accent3; // "#EF4444" - Red-500
+      return colors.accent3;
     case "Products":
-      return C.accent1; // "#FBBF24" - Amber-400
+      return colors.accent1;
     default:
-      return C.accent1; // Fallback to amber
+      return colors.accent1;
   }
 };
 
@@ -116,10 +122,15 @@ export default function SimulationWorkspace() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   /* Timers */
-
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const labelRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  /* Chart container ref for auto-scroll */
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  /* Sidebar ref to measure height */
+  const sidebarRef = useRef<HTMLDivElement>(null);
+  /* State to track sidebar height */
+  const [sidebarHeight, setSidebarHeight] = useState<number>(0);
 
   /* Error handler */
   const errRef = useRef<HTMLDivElement>(null);
@@ -132,6 +143,26 @@ export default function SimulationWorkspace() {
   useEffect(() => {
     if (debugRef.current) debugRef.current.scrollTop = debugRef.current.scrollHeight;
   }, [series.length, runId]);
+
+  /* Measure sidebar height on mount and window resize */
+  useEffect(() => {
+    const measureHeight = () => {
+      if (sidebarRef.current) {
+        setSidebarHeight(sidebarRef.current.offsetHeight);
+      }
+    };
+
+    measureHeight();
+    window.addEventListener('resize', measureHeight);
+    return () => window.removeEventListener('resize', measureHeight);
+  }, []);
+
+  /* Update height when sidebar content changes */
+  useEffect(() => {
+    if (sidebarRef.current) {
+      setSidebarHeight(sidebarRef.current.offsetHeight);
+    }
+  }, [inputs, running, series.length]);
 
 
   /* Derived series for charts */
@@ -175,7 +206,7 @@ export default function SimulationWorkspace() {
     ];
   }, [series, inputs]);
 
-  /* Input handler */
+  /* Input handler for text/date inputs */
   const onChange =
     (key: keyof SimInputs) =>
       (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -186,6 +217,16 @@ export default function SimulationWorkspace() {
             key === "start_date"
               ? v
               : Number.parseInt(v, 10),
+        }));
+      };
+
+  /* Slider handler for numeric inputs */
+  const onSliderChange =
+    (key: keyof SimInputs) =>
+      (value: number[]) => {
+        setInputs((s) => ({
+          ...s,
+          [key]: value[0],
         }));
       };
 
@@ -245,6 +286,14 @@ export default function SimulationWorkspace() {
     setErrorMsg(null);
     setRunning(true);
     setElapsed(0);
+
+    // Auto-scroll to chart container
+    setTimeout(() => {
+      chartContainerRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }, 100);
 
     // Button timer
     const t0 = Date.now();
@@ -332,255 +381,338 @@ export default function SimulationWorkspace() {
   };
 
   /* ---------- UI ---------- */
-  const inputClass =
-    "bg-[#393E46] border-[#948979] text-[#DFD0B8] placeholder:text-[#DFD0B8]/60 focus-visible:ring-[#FBBF24] focus-visible:ring-2";
+  const inputClass = "bg-input border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-0";
 
+  const chartColors = getChartColors();
   const tooltipProps = {
-    contentStyle: { backgroundColor: C.tipBg, borderColor: C.tipBorder, color: C.axis },
-    labelStyle: { color: C.axis },
-    itemStyle: { color: C.axis },
+    contentStyle: {
+      backgroundColor: chartColors.tipBg,
+      borderColor: chartColors.tipBorder,
+      color: chartColors.axis,
+      borderRadius: '8px',
+      border: '1px solid'
+    },
+    labelStyle: { color: chartColors.axis },
+    itemStyle: { color: chartColors.axis },
   } as const;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 py-6">
-      {/* Left panel: inputs + controls */}
-      <Card className="border-[#948979] bg-[#222831] lg:col-span-4 text-[#DFD0B8]">
-        <CardHeader>
-          <CardTitle className="text-lg">Simulation Inputs</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-2">
-            <Label htmlFor="start_date">Start Date</Label>
-            <Input
-              id="start_date"
-              type="date"
-              value={inputs.start_date}
-              onChange={onChange("start_date")}
-              className={inputClass}
-            />
-            <small className="text-xs text-gray-400">
-              Will be sent as: {formatDateForAPI(inputs.start_date)}
-            </small>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="days">Days</Label>
-            <Input
-              id="days"
-              type="number"
-              min={1}
-              value={inputs.max_steps}
-              onChange={onChange("max_steps")}
-              className={inputClass}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="n_customers1">Total Customers (type 1)</Label>
-            <Input
-              id="n_customers1"
-              type="number"
-              min={1}
-              value={inputs.n_customers1}
-              onChange={onChange("n_customers1")}
-              className={inputClass}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="n_customers2">Total Customers (type 2)</Label>
-            <Input
-              id="n_customers2"
-              type="number"
-              min={1}
-              value={inputs.n_customers2}
-              onChange={onChange("n_customers2")}
-              className={inputClass}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="n_products_per_category">Product Per Category (34 total category)</Label>
-            <Input
-              id="n_products_per_category"
-              type="number"
-              min={1}
-              value={inputs.n_products_per_category}
-              onChange={onChange("n_products_per_category")}
-              className={inputClass}
-            />
-          </div>
+    <div className="w-full">
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold text-foreground mb-2">Simulation Workspace</h2>
+        <p className="text-muted-foreground">Configure parameters and run real-time customer behavior simulation</p>
+      </div>
 
-          <div className="flex flex-col gap-3 pt-2">
-            <Button
-              onClick={start}
-              disabled={running}
-              className="w-full bg-[#DFD0B8] text-[#222831] hover:bg-[#FBBF24]/90"
-            >
-              {running ? `Running… ${fmtElapsed(elapsed)}` : "Submit"}
-            </Button>
-
-            <Button
-              onClick={reset}
-              variant="secondary"
-              disabled={!running && series.length === 0}
-              className="w-full bg-[#948979] text-black hover:bg-[#393E46]/30"
-            >
-              Reset
-            </Button>
-
-            {/* Debug info */}
-            <div className="bg-green-900/20 border border-green-500/50 rounded p-3 text-xs h-40 overflow-y-auto overscroll-contain"
-              ref={debugRef}>
-              <p className="text-green-300 font-medium top-0 bg-green-900/30 py-1">
-                Debug Info:
-              </p>
-              <div className="space-y-1 text-green-200 mt-2">
-                <p>API URL: /api/simulate/</p>
-                <p>Run ID: {runId || "None"}</p>
-                <p>Steps received: {series.length}</p>
-                {/* Optional: stream recent lines */}
-                {series.slice(-200).map((m, i) => (
-                  <p key={i} className="whitespace-pre-wrap break-words">
-                    {JSON.stringify(m)}
-                  </p>
-                ))}
-              </div>
-
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Left panel: inputs + controls */}
+        <Card className="lg:col-span-3 bg-card border-border" ref={sidebarRef}>
+          <CardHeader>
+            <CardTitle className="text-lg text-foreground">Simulation Parameters</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="start_date" className="text-sm font-medium text-foreground">Start Date</Label>
+              <Input
+                id="start_date"
+                type="date"
+                value={inputs.start_date}
+                onChange={onChange("start_date")}
+                className={inputClass}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="days" className="text-sm font-medium text-foreground">Simulation Days</Label>
+              <Input
+                id="days"
+                type="number"
+                min={1}
+                value={inputs.max_steps}
+                onChange={onChange("max_steps")}
+                className={inputClass}
+              />
             </div>
 
+            {/* Type 1 Customers Slider */}
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <Label className="text-sm font-medium text-foreground">Type 1 Customers</Label>
+                <span className="text-sm font-medium text-primary">{inputs.n_customers1}</span>
+              </div>
+              <Slider
+                value={[inputs.n_customers1]}
+                onValueChange={onSliderChange("n_customers1")}
+                min={0}
+                max={5000}
+                step={10}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>0</span>
+                <span>5,000</span>
+              </div>
+            </div>
+
+            {/* Type 2 Customers Slider */}
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <Label className="text-sm font-medium text-foreground">Type 2 Customers</Label>
+                <span className="text-sm font-medium text-primary">{inputs.n_customers2}</span>
+              </div>
+              <Slider
+                value={[inputs.n_customers2]}
+                onValueChange={onSliderChange("n_customers2")}
+                min={0}
+                max={5000}
+                step={10}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>0</span>
+                <span>5,000</span>
+              </div>
+            </div>
+
+            {/* Products Per Category Slider */}
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <Label className="text-sm font-medium text-foreground">Products Per Category</Label>
+                <span className="text-sm font-medium text-primary">{inputs.n_products_per_category}</span>
+              </div>
+              <Slider
+                value={[inputs.n_products_per_category]}
+                onValueChange={onSliderChange("n_products_per_category")}
+                min={1}
+                max={20}
+                step={1}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>1</span>
+                <span>20</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 pt-4 border-t border-border">
+              <Button
+                onClick={start}
+                disabled={running}
+                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-medium"
+                size="lg"
+              >
+                {running ? (
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-background border-t-transparent"></div>
+                    Running {fmtElapsed(elapsed)}
+                  </div>
+                ) : (
+                  "Start Simulation"
+                )}
+              </Button>
+
+              <Button
+                onClick={reset}
+                variant="outline"
+                disabled={!running && series.length === 0}
+                className="w-full"
+              >
+                Reset
+              </Button>
+
+              {/* Status info - more subtle */}
+              <div className="bg-muted/30 border border-border rounded-lg p-3 text-xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-foreground">Status</span>
+                  <span className={`px-2 py-1 rounded text-xs ${running ? 'bg-green-500/20 text-green-400' :
+                    series.length > 0 ? 'bg-blue-500/20 text-blue-400' :
+                      'bg-muted-foreground/20 text-muted-foreground'
+                    }`}>
+                    {running ? 'Running' : series.length > 0 ? 'Complete' : 'Ready'}
+                  </span>
+                </div>
+                {runId && (
+                  <div className="text-muted-foreground">
+                    <span>Run ID: </span><span className="font-mono">{runId.slice(-8)}</span>
+                  </div>
+                )}
+                <div className="text-muted-foreground">
+                  Steps: {series.length} / {inputs.max_steps}
+                </div>
+              </div>
+
+
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Right panel: 3-row chart layout */}
+        <div className="lg:col-span-9" ref={chartContainerRef}>
+          <div
+            className="grid grid-cols-5 grid-rows-3 gap-4"
+            style={{ height: sidebarHeight > 0 ? `${sidebarHeight}px` : 'auto' }}
+          >
+
+            {/* Row 1: Average Purchase (3 cols, 1 row) */}
+            {/* Average purchases per customer type - 3 cols, 1 row */}
+            <Card className="col-span-3 row-span-1 bg-card border-border flex flex-col">
+              <CardHeader className="flex-shrink-0">
+                <CardTitle className="text-foreground">Average Purchases by Customer Type</CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 min-h-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RLineChart data={avgPurchasesSeries}>
+                    <CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="label"
+                      axisLine={{ stroke: chartColors.axis, strokeWidth: 1 }}
+                      tickLine={{ stroke: chartColors.axis, strokeWidth: 1 }}
+                      tick={{ fill: chartColors.axis, fontSize: 11 }}
+                      height={40}
+                    />
+                    <YAxis
+                      axisLine={{ stroke: chartColors.axis, strokeWidth: 1 }}
+                      tickLine={{ stroke: chartColors.axis, strokeWidth: 1 }}
+                      tick={{ fill: chartColors.axis, fontSize: 11 }}
+                      width={40}
+                    />
+                    <Tooltip {...tooltipProps} />
+                    <Legend wrapperStyle={{ color: chartColors.axis, fontSize: '12px' }} />
+                    <Line
+                      type="monotone"
+                      dataKey="cust1"
+                      name="Type 1"
+                      stroke={chartColors.accent1}
+                      strokeWidth={2.5}
+                      dot={false}
+                      activeDot={{ r: 4 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="cust2"
+                      name="Type 2"
+                      stroke={chartColors.accent2}
+                      strokeWidth={2.5}
+                      dot={false}
+                      activeDot={{ r: 4 }}
+                    />
+                  </RLineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* Entity counts - 2 cols, 2 rows */}
+            <Card className="col-span-2 row-span-2 bg-card border-border flex flex-col">
+              <CardHeader className="flex-shrink-0">
+                <CardTitle className="text-foreground">Entity Counts</CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 min-h-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RBarChart data={totalsBar}>
+                    <CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="name"
+                      axisLine={{ stroke: chartColors.axis }}
+                      tickLine={{ stroke: chartColors.axis }}
+                      tick={{ fill: chartColors.axis, fontSize: 11 }}
+                      height={50}
+                      angle={-45}
+                      textAnchor="end"
+                      interval={0}
+                    />
+                    <YAxis
+                      axisLine={{ stroke: chartColors.axis }}
+                      tickLine={{ stroke: chartColors.axis }}
+                      tick={{ fill: chartColors.axis, fontSize: 11 }}
+                      width={50}
+                    />
+                    <Tooltip {...tooltipProps} />
+                    <Bar dataKey="value" name="Count" fillOpacity={0.8} radius={[4, 4, 0, 0]}>
+                      {totalsBar.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={getBarColor(entry.name)} />
+                      ))}
+                    </Bar>
+                  </RBarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* Row 2: Daily Purchase Volume - 3 cols, 1 row */}
+            <Card className="col-span-3 row-span-1 bg-card border-border flex flex-col">
+              <CardHeader className="flex-shrink-0">
+                <CardTitle className="text-foreground">Daily Purchase Volume</CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 min-h-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RLineChart data={totalPurchasesSeries}>
+                    <CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="label"
+                      axisLine={{ stroke: chartColors.axis }}
+                      tickLine={{ stroke: chartColors.axis }}
+                      tick={{ fill: chartColors.axis, fontSize: 11 }}
+                      height={40}
+                    />
+                    <YAxis
+                      axisLine={{ stroke: chartColors.axis }}
+                      tickLine={{ stroke: chartColors.axis }}
+                      tick={{ fill: chartColors.axis, fontSize: 11 }}
+                      width={50}
+                    />
+                    <Tooltip {...tooltipProps} />
+                    <Line
+                      type="monotone"
+                      dataKey="value"
+                      name="Total Purchases"
+                      stroke={chartColors.accent2}
+                      strokeWidth={3}
+                      dot={false}
+                      activeDot={{ r: 5 }}
+                    />
+                  </RLineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* Row 3: Stockout Rate - full width (5 cols, 1 row) */}
+            <Card className="col-span-5 row-span-1 bg-card border-border flex flex-col">
+              <CardHeader className="flex-shrink-0">
+                <CardTitle className="text-foreground">Stockout Rate (%)</CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 min-h-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RLineChart data={stockoutSeries}>
+                    <CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="label"
+                      axisLine={{ stroke: chartColors.axis }}
+                      tickLine={{ stroke: chartColors.axis }}
+                      tick={{ fill: chartColors.axis, fontSize: 11 }}
+                      height={40}
+                    />
+                    <YAxis
+                      axisLine={{ stroke: chartColors.axis }}
+                      tickLine={{ stroke: chartColors.axis }}
+                      tick={{ fill: chartColors.axis, fontSize: 11 }}
+                      width={50}
+                    />
+                    <Tooltip {...tooltipProps} />
+                    <Line
+                      type="monotone"
+                      dataKey="value"
+                      name="Stockout %"
+                      stroke={chartColors.accent3}
+                      strokeWidth={2.5}
+                      dot={false}
+                      activeDot={{ r: 4 }}
+                    />
+                  </RLineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
 
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Right panel: charts */}
-      <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Avg purchases per customer type */}
-        <Card
-          className="border-[#948979] bg-[#222831] text-[#DFD0B8]"
-          style={{ ["--card-bg" as any]: C.bg, ["--card-fg" as any]: C.axis }}
-        >
-          <CardHeader>
-            <CardTitle>Average Purchases per Customer Type</CardTitle>
-          </CardHeader>
-          <CardContent className="h-full w-full pt-4">
-            <ResponsiveContainer width="100%" height="90%">
-              <RLineChart data={avgPurchasesSeries}>
-                <CartesianGrid stroke={C.grid} />
-                <XAxis
-                  dataKey="label"
-                  axisLine={{ stroke: C.axis, strokeWidth: 1 }}
-                  tickLine={{ stroke: C.axis, strokeWidth: 1 }}
-                  tick={{ fill: C.axis, fontSize: 12 }}
-                  height={60}
-                />
-                <YAxis
-                  axisLine={{ stroke: C.axis, strokeWidth: 1 }}
-                  tickLine={{ stroke: C.axis, strokeWidth: 1 }}
-                  tick={{ fill: C.axis, fontSize: 12 }}
-                  width={60}
-                />
-                <Tooltip {...tooltipProps} />
-                <Legend wrapperStyle={{ color: C.axis }} />
-                <Line type="monotone" dataKey="cust1" name="Customers1" stroke={C.accent1} strokeWidth={2.5} dot={false} />
-                <Line type="monotone" dataKey="cust2" name="Customers2" stroke={C.accent2} strokeWidth={2.5} dot={false} />
-              </RLineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Total daily purchases */}
-        <Card
-          className="border-[#948979] bg-[#222831] text-[#DFD0B8]"
-          style={{ ["--card-bg" as any]: C.bg, ["--card-fg" as any]: C.axis }}
-        >
-          <CardHeader>
-            <CardTitle>Total Daily Purchases</CardTitle>
-          </CardHeader>
-          <CardContent className="h-full w-full pt-4">
-            <ResponsiveContainer width="100%" height="90%">
-              <RLineChart data={totalPurchasesSeries}>
-                <CartesianGrid stroke={C.grid} />
-                <XAxis
-                  dataKey="label"
-                  axisLine={{ stroke: C.axis }}
-                  tickLine={{ stroke: C.axis }}
-                  tick={{ fill: C.axis }}
-                />
-                <YAxis
-                  axisLine={{ stroke: C.axis }}
-                  tickLine={{ stroke: C.axis }}
-                  tick={{ fill: C.axis }}
-                />
-                <Tooltip {...tooltipProps} />
-                <Line type="monotone" dataKey="value" name="Total Purchases" stroke={C.accent2} strokeWidth={2.5} dot={false} />
-              </RLineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Totals bar chart */}
-        <Card
-          className="border-[#948979] bg-[#222831] text-[#DFD0B8]"
-          style={{ ["--card-bg" as any]: C.bg, ["--card-fg" as any]: C.axis }}
-        >
-          <CardHeader>
-            <CardTitle>Total Count (Customers / Products)</CardTitle>
-          </CardHeader>
-          <CardContent className="h-full w-full pt-4">
-            <ResponsiveContainer width="100%" height="90%">
-              <RBarChart data={totalsBar}>
-                <CartesianGrid stroke={C.grid} />
-                <XAxis
-                  dataKey="name"
-                  axisLine={{ stroke: C.axis }}
-                  tickLine={{ stroke: C.axis }}
-                  tick={{ fill: C.axis }}
-                />
-                <YAxis
-                  axisLine={{ stroke: C.axis }}
-                  tickLine={{ stroke: C.axis }}
-                  tick={{ fill: C.axis }}
-                />
-                <Tooltip {...tooltipProps} />
-                <Bar dataKey="value" name="Total" fillOpacity={0.9}>
-                  {totalsBar.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={getBarColor(entry.name)} />
-                  ))}
-                </Bar>
-              </RBarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Stockout Rate */}
-        <Card
-          className="border-[#948979] bg-[#222831] text-[#DFD0B8]"
-          style={{ ["--card-bg" as any]: C.bg, ["--card-fg" as any]: C.axis }}
-        >
-          <CardHeader>
-            <CardTitle>Stockout Rate (%)</CardTitle>
-          </CardHeader>
-          <CardContent className="h-full w-full pt-4">
-            <ResponsiveContainer width="100%" height="90%">
-              <RLineChart data={stockoutSeries}>
-                <CartesianGrid stroke={C.grid} />
-                <XAxis
-                  dataKey="label"
-                  axisLine={{ stroke: C.axis }}
-                  tickLine={{ stroke: C.axis }}
-                  tick={{ fill: C.axis }}
-                />
-                <YAxis
-                  axisLine={{ stroke: C.axis }}
-                  tickLine={{ stroke: C.axis }}
-                  tick={{ fill: C.axis }}
-                />
-                <Tooltip {...tooltipProps} />
-                <Line type="monotone" dataKey="value" name="Stockout %" stroke={C.accent2} strokeWidth={2.5} dot={false} />
-              </RLineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        </div>
       </div>
-    </div >
+    </div>
   );
 }
 

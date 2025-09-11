@@ -71,10 +71,10 @@ export default function DocumentationPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen min-w-full bg-background">
       <Header />
       <main className="bg-[#393E46] pt-8">
-        <div className="max-w-6xl mx-auto p-6">
+        <div className="max-w-4xl mx-auto prose-lg">
           <div className="space-y-16">
             {sections.map((section) => (
               <div key={section.id} className="space-y-8">
