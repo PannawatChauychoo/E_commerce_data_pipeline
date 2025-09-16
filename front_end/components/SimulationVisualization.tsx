@@ -23,16 +23,27 @@ import {
 
 
 /* ---------- Updated Color system using CSS custom properties ---------- */
-const getChartColors = () => {
-  if (typeof window === 'undefined') return {};
+const getChartColors = (isDark: boolean) => {
+  if (typeof window === 'undefined') return {
+    bg: '#ffffff',
+    grid: '#e5e7eb',
+    axis: '#1f2937',
+    accent1: '#3b82f6',
+    accent2: '#10b981',
+    accent3: '#f59e0b',
+    tipBg: '#ffffff',
+    tipBorder: '#e5e7eb',
+  };
+
   const style = getComputedStyle(document.documentElement);
+
   return {
     bg: `hsl(${style.getPropertyValue('--card')})`,
     grid: `hsl(${style.getPropertyValue('--border')})`,
-    axis: `hsl(${style.getPropertyValue('--foreground')})`,
-    accent1: `hsl(${style.getPropertyValue('--chart-1')})`,
-    accent2: `hsl(${style.getPropertyValue('--chart-2')})`,
-    accent3: `hsl(${style.getPropertyValue('--chart-3')})`,
+    axis: isDark ? '#e5e7eb' : '#374151', // High contrast: light gray in dark mode, dark gray in light mode
+    accent1: isDark ? '#60a5fa' : '#3b82f6', // Blue - lighter in dark mode
+    accent2: isDark ? '#34d399' : '#10b981', // Green - lighter in dark mode
+    accent3: isDark ? '#fbbf24' : '#f59e0b', // Yellow - lighter in dark mode
     tipBg: `hsl(${style.getPropertyValue('--popover')})`,
     tipBorder: `hsl(${style.getPropertyValue('--border')})`,
   };
@@ -50,6 +61,7 @@ type SimInputs = {
 /** Raw step payload as returned by your model.step() on the server */
 type StepMetricsRaw = {
   step: number;
+  current_date: string;
   cust1_avg_purchase: number;
   cust2_avg_purchase: number;
   total_daily_purchases: number;
@@ -61,15 +73,15 @@ type StepMetricsRaw = {
 
 
 // Choosing colors for barchart using CSS custom properties
-const getBarColor = (name: string) => {
-  const colors = getChartColors();
+const getBarColor = (name: string, isDark: boolean) => {
+  const colors = getChartColors(isDark);
   switch (name) {
     case "Customers1":
-      return colors.accent2;
+      return colors.accent1; // Blue
     case "Customers2":
-      return colors.accent3;
+      return colors.accent2; // Green
     case "Products":
-      return colors.accent1;
+      return colors.accent3; // Yellow
     default:
       return colors.accent1;
   }
@@ -95,12 +107,77 @@ function formatDateForAPI(dateStr: string): string {
   return dateStr.replace(/-/g, '');
 }
 
-// Convert YYYYMMDD to YYYY-MM-DD
-function formatDateForInput(dateStr: string): string {
-  if (dateStr.length === 8) {
-    return `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
+// Convert YYYYMMDD or float to MM/DD/YY format
+function formatDateForInput(dateStr: string | number): string {
+  const str = String(dateStr);
+
+  // Handle float format like 20250101.0
+  if (str.includes('.')) {
+    const cleanStr = str.split('.')[0];
+    if (cleanStr.length === 8) {
+      const year = cleanStr.slice(2, 4); // Get last 2 digits of year
+      const month = cleanStr.slice(4, 6);
+      const day = cleanStr.slice(6, 8);
+      return `${month}/${day}/${year}`;
+    }
   }
-  return dateStr;
+
+  // Handle YYYYMMDD format
+  if (str.length === 8) {
+    const year = str.slice(2, 4); // Get last 2 digits of year
+    const month = str.slice(4, 6);
+    const day = str.slice(6, 8);
+    return `${month}/${day}/${year}`;
+  }
+
+  // Handle YYYY-MM-DD format
+  if (str.includes('-') && str.length === 10) {
+    const parts = str.split('-');
+    const year = parts[0].slice(2); // Get last 2 digits
+    const month = parts[1];
+    const day = parts[2];
+    return `${month}/${day}/${year}`;
+  }
+
+  return str;
+}
+
+// Calculate evenly spaced Y-axis with explicit ticks
+function calculateEvenYAxis(data: any[], dataKey: string, tickCount: number = 5): { domain: [number, number], ticks: number[] } {
+  if (!data.length) return { domain: [0, 1], ticks: [] };
+
+  const values = data.map(d => Number(d[dataKey]) || 0);
+  const maxValue = Math.max(...values);
+
+  if (maxValue === 0) return { domain: [0, 1], ticks: [] };
+
+  // Calculate nice step size
+  const roughStep = maxValue / (tickCount - 1);
+  const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep)));
+  const normalizedStep = roughStep / magnitude;
+
+  let niceStep;
+  if (normalizedStep <= 1) niceStep = 1;
+  else if (normalizedStep <= 2) niceStep = 2;
+  else if (normalizedStep <= 5) niceStep = 5;
+  else niceStep = 10;
+
+  const step = niceStep * magnitude;
+  const finalTick = Math.ceil(maxValue / step) * step;
+  const paddedMax = Math.max(finalTick, maxValue * 1.1);
+
+  // Generate explicit tick array
+  const ticks = [];
+  for (let i = 0; i <= finalTick; i += step) {
+    ticks.push(i);
+  }
+
+  // Remove final tick if it's too close to the previous one
+  if (ticks.length > 1 && (ticks[ticks.length - 1] - ticks[ticks.length - 2]) < step * 0.5) {
+    ticks.pop();
+  }
+
+  return { domain: [0, paddedMax], ticks };
 }
 
 /* ---------- Component ---------- */
@@ -120,6 +197,15 @@ export default function SimulationWorkspace() {
   const [elapsed, setElapsed] = useState<number>(0); // seconds
   const [series, setSeries] = useState<StepMetricsRaw[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  /* Preview and Continue functionality */
+  const [previewData, setPreviewData] = useState<StepMetricsRaw[]>([]);
+  const [canContinue, setCanContinue] = useState(false);
+  const [previewInfo, setPreviewInfo] = useState<string>("");
+  const [loadingPreview, setLoadingPreview] = useState(false);
+
+  /* Theme detection for reactive colors */
+  const [isDark, setIsDark] = useState(false);
 
   /* Timers */
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -164,34 +250,114 @@ export default function SimulationWorkspace() {
     }
   }, [inputs, running, series.length]);
 
+  /* Check if we can continue from previous simulation */
+  const checkCanContinue = useCallback(async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/simulate/can-continue/', {
+        credentials: 'include',
+      });
+      const data = await response.json();
+      setCanContinue(data.can_continue);
+    } catch (error) {
+      console.error('Error checking continuation:', error);
+      setCanContinue(false);
+    }
+  }, []);
 
-  /* Derived series for charts */
+  /* Load preview data from previous simulation */
+  const loadPreview = useCallback(async () => {
+    setLoadingPreview(true);
+    try {
+      const response = await fetch('http://localhost:8000/api/simulate/preview/', {
+        credentials: 'include',
+      });
+      const data = await response.json();
+
+      if (data.has_data && data.preview_data) {
+        setPreviewData(data.preview_data);
+        setPreviewInfo(data.message || `Loaded ${data.preview_data.length} historical steps`);
+      } else {
+        setPreviewData([]);
+        setPreviewInfo('No historical data found');
+      }
+    } catch (error) {
+      console.error('Error loading preview:', error);
+      setPreviewInfo('Failed to load preview data');
+      setPreviewData([]);
+    } finally {
+      setLoadingPreview(false);
+    }
+  }, []);
+
+  /* Check continuation possibility on mount */
+  useEffect(() => {
+    checkCanContinue();
+  }, [checkCanContinue]);
+
+  /* Theme detection - listen for theme changes */
+  useEffect(() => {
+    const updateTheme = () => {
+      if (typeof window !== 'undefined') {
+        setIsDark(document.documentElement.classList.contains('dark'));
+      }
+    };
+
+    // Initial theme detection
+    updateTheme();
+
+    // Listen for theme changes using MutationObserver
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+          updateTheme();
+        }
+      });
+    });
+
+    if (typeof window !== 'undefined') {
+      observer.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class']
+      });
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
+
+  /* Derived series for charts - combine preview data with live simulation */
   const avgPurchasesSeries = useMemo(
-    () =>
-      series.map((d) => ({
-        label: addDays(inputs.start_date, Math.max(0, (d.step ?? 1) - 1)),
+    () => {
+      const combined = [...previewData, ...series];
+      return combined.map((d) => ({
+        label: d.current_date ? formatDateForInput(d.current_date) : addDays(inputs.start_date, Math.max(0, (d.step ?? 1) - 1)),
         cust1: Number(d.cust1_avg_purchase ?? 0),
         cust2: Number(d.cust2_avg_purchase ?? 0),
-      })),
-    [series, inputs.start_date]
+      }));
+    },
+    [series, previewData, inputs.start_date]
   );
 
   const totalPurchasesSeries = useMemo(
-    () =>
-      series.map((d) => ({
-        label: addDays(inputs.start_date, Math.max(0, (d.step ?? 1) - 1)),
+    () => {
+      const combined = [...previewData, ...series];
+      return combined.map((d) => ({
+        label: d.current_date ? formatDateForInput(d.current_date) : addDays(inputs.start_date, Math.max(0, (d.step ?? 1) - 1)),
         value: Number(d.total_daily_purchases ?? 0),
-      })),
-    [series, inputs.start_date]
+      }));
+    },
+    [series, previewData, inputs.start_date]
   );
 
   const stockoutSeries = useMemo(
-    () =>
-      series.map((d) => ({
-        label: addDays(inputs.start_date, Math.max(0, (d.step ?? 1) - 1)),
+    () => {
+      const combined = [...previewData, ...series];
+      return combined.map((d) => ({
+        label: d.current_date ? formatDateForInput(d.current_date) : addDays(inputs.start_date, Math.max(0, (d.step ?? 1) - 1)),
         value: Number(d.stockout_rate ?? 0),
-      })),
-    [series, inputs.start_date]
+      }));
+    },
+    [series, previewData, inputs.start_date]
   );
 
   const totalsBar = useMemo(() => {
@@ -250,6 +416,8 @@ export default function SimulationWorkspace() {
     setRunning(false);
     setSeries([]);
     setErrorMsg(null);
+    setPreviewData([]);
+    setPreviewInfo("");
   }, [runId]);
 
   /* Cleanup on unmount */
@@ -305,6 +473,7 @@ export default function SimulationWorkspace() {
       ...inputs,
       // ensure API gets YYYYMMDD
       start_date: formatDateForAPI(inputs.start_date),
+      continue_existing: canContinue, // Auto-continue if previous data exists
     };
 
     // derive max steps from either max_steps or days
@@ -383,7 +552,7 @@ export default function SimulationWorkspace() {
   /* ---------- UI ---------- */
   const inputClass = "bg-input border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-0";
 
-  const chartColors = getChartColors();
+  const chartColors = useMemo(() => getChartColors(isDark), [isDark]);
   const tooltipProps = {
     contentStyle: {
       backgroundColor: chartColors.tipBg,
@@ -493,6 +662,24 @@ export default function SimulationWorkspace() {
             </div>
 
             <div className="flex flex-col gap-3 pt-4 border-t border-border">
+
+              {/* Load Preview Button */}
+              <Button
+                onClick={loadPreview}
+                disabled={loadingPreview}
+                variant="outline"
+                className="w-full"
+              >
+                {loadingPreview ? (
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-foreground border-t-transparent"></div>
+                    Loading...
+                  </div>
+                ) : (
+                  "Load Previous Data"
+                )}
+              </Button>
+
               <Button
                 onClick={start}
                 disabled={running}
@@ -505,14 +692,14 @@ export default function SimulationWorkspace() {
                     Running {fmtElapsed(elapsed)}
                   </div>
                 ) : (
-                  "Start Simulation"
+                  canContinue ? "Continue Simulation" : "Start Simulation"
                 )}
               </Button>
 
               <Button
                 onClick={reset}
                 variant="outline"
-                disabled={!running && series.length === 0}
+                disabled={!running && series.length === 0 && previewData.length === 0}
                 className="w-full"
               >
                 Reset
@@ -537,6 +724,16 @@ export default function SimulationWorkspace() {
                 <div className="text-muted-foreground">
                   Steps: {series.length} / {inputs.max_steps}
                 </div>
+                {previewData.length > 0 && (
+                  <div className="text-muted-foreground">
+                    Preview: {previewData.length} historical steps
+                  </div>
+                )}
+                {previewInfo && (
+                  <div className="text-xs text-muted-foreground">
+                    {previewInfo}
+                  </div>
+                )}
               </div>
 
 
@@ -567,12 +764,27 @@ export default function SimulationWorkspace() {
                       tickLine={{ stroke: chartColors.axis, strokeWidth: 1 }}
                       tick={{ fill: chartColors.axis, fontSize: 11 }}
                       height={40}
+                      tickFormatter={(value) => {
+                        if (!value) return '';
+                        if (value.includes('/')) return value; // Already in MM/DD/YY format
+                        return formatDateForInput(value);
+                      }}
                     />
                     <YAxis
                       axisLine={{ stroke: chartColors.axis, strokeWidth: 1 }}
                       tickLine={{ stroke: chartColors.axis, strokeWidth: 1 }}
                       tick={{ fill: chartColors.axis, fontSize: 11 }}
                       width={40}
+                      {...(() => {
+                        const cust1Domain = calculateEvenYAxis(avgPurchasesSeries, 'cust1');
+                        const cust2Domain = calculateEvenYAxis(avgPurchasesSeries, 'cust2');
+                        const maxDomain = Math.max(cust1Domain.domain[1], cust2Domain.domain[1]);
+                        const allTicks = [...new Set([...cust1Domain.ticks, ...cust2Domain.ticks])].sort((a, b) => a - b);
+                        return {
+                          domain: [0, maxDomain],
+                          ticks: allTicks.length > 0 ? allTicks : undefined
+                        };
+                      })()}
                     />
                     <Tooltip {...tooltipProps} />
                     <Legend wrapperStyle={{ color: chartColors.axis, fontSize: '12px' }} />
@@ -624,10 +836,18 @@ export default function SimulationWorkspace() {
                       tick={{ fill: chartColors.axis, fontSize: 11 }}
                       width={50}
                     />
-                    <Tooltip {...tooltipProps} />
-                    <Bar dataKey="value" name="Count" fillOpacity={0.8} radius={[4, 4, 0, 0]}>
+                    <Bar
+                      dataKey="value"
+                      name="Count"
+                      fillOpacity={0.8}
+                      radius={[4, 4, 0, 0]}
+                      isAnimationActive={false}
+                    >
                       {totalsBar.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={getBarColor(entry.name)} />
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={getBarColor(entry.name, isDark)}
+                        />
                       ))}
                     </Bar>
                   </RBarChart>
@@ -650,12 +870,24 @@ export default function SimulationWorkspace() {
                       tickLine={{ stroke: chartColors.axis }}
                       tick={{ fill: chartColors.axis, fontSize: 11 }}
                       height={40}
+                      tickFormatter={(value) => {
+                        if (!value) return '';
+                        if (value.includes('/')) return value; // Already in MM/DD/YY format
+                        return formatDateForInput(value);
+                      }}
                     />
                     <YAxis
                       axisLine={{ stroke: chartColors.axis }}
                       tickLine={{ stroke: chartColors.axis }}
                       tick={{ fill: chartColors.axis, fontSize: 11 }}
                       width={50}
+                      {...(() => {
+                        const { domain, ticks } = calculateEvenYAxis(totalPurchasesSeries, 'value');
+                        return {
+                          domain,
+                          ticks: ticks.length > 0 ? ticks : undefined
+                        };
+                      })()}
                     />
                     <Tooltip {...tooltipProps} />
                     <Line
@@ -687,12 +919,24 @@ export default function SimulationWorkspace() {
                       tickLine={{ stroke: chartColors.axis }}
                       tick={{ fill: chartColors.axis, fontSize: 11 }}
                       height={40}
+                      tickFormatter={(value) => {
+                        if (!value) return '';
+                        if (value.includes('/')) return value; // Already in MM/DD/YY format
+                        return formatDateForInput(value);
+                      }}
                     />
                     <YAxis
                       axisLine={{ stroke: chartColors.axis }}
                       tickLine={{ stroke: chartColors.axis }}
                       tick={{ fill: chartColors.axis, fontSize: 11 }}
                       width={50}
+                      {...(() => {
+                        const { domain, ticks } = calculateEvenYAxis(stockoutSeries, 'value');
+                        return {
+                          domain,
+                          ticks: ticks.length > 0 ? ticks : undefined
+                        };
+                      })()}
                     />
                     <Tooltip {...tooltipProps} />
                     <Line
