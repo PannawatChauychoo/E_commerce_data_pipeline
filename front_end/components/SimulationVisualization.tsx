@@ -25,27 +25,21 @@ import {
 /* ---------- Updated Color system using CSS custom properties ---------- */
 const getChartColors = (isDark: boolean) => {
   if (typeof window === 'undefined') return {
-    bg: '#ffffff',
     grid: '#e5e7eb',
     axis: '#1f2937',
     accent1: '#3b82f6',
     accent2: '#10b981',
     accent3: '#f59e0b',
-    tipBg: '#ffffff',
-    tipBorder: '#e5e7eb',
   };
 
   const style = getComputedStyle(document.documentElement);
 
   return {
-    bg: `hsl(${style.getPropertyValue('--card')})`,
     grid: `hsl(${style.getPropertyValue('--border')})`,
     axis: isDark ? '#e5e7eb' : '#374151', // High contrast: light gray in dark mode, dark gray in light mode
     accent1: isDark ? '#60a5fa' : '#3b82f6', // Blue - lighter in dark mode
     accent2: isDark ? '#34d399' : '#10b981', // Green - lighter in dark mode
     accent3: isDark ? '#fbbf24' : '#f59e0b', // Yellow - lighter in dark mode
-    tipBg: `hsl(${style.getPropertyValue('--popover')})`,
-    tipBorder: `hsl(${style.getPropertyValue('--border')})`,
   };
 };
 
@@ -142,6 +136,36 @@ function formatDateForInput(dateStr: string | number): string {
   return str;
 }
 
+// Custom Tooltip Component for Line Charts
+const CustomLineTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload || !payload.length) return null;
+
+  return (
+    <div className="bg-gray-100 border border-gray-300 rounded-md px-2 py-1 text-xs shadow-sm">
+      <p className="font-medium text-gray-800 mb-1">{label}</p>
+      {payload.map((entry: any, index: number) => (
+        <div key={index} className="flex items-center gap-1">
+          <div
+            className="w-2 h-2 rounded-full"
+            style={{ backgroundColor: entry.color }}
+          />
+          <span className="text-gray-700">
+            {entry.name}: {(() => {
+              if (entry.name.includes('Stockout') || entry.name.includes('%')) {
+                // For stockout data, check if we're showing counts or percentages
+                return entry.name.includes('%')
+                  ? Number(entry.value).toFixed(2) // Percentage mode - 2 decimals
+                  : Math.round(entry.value); // Count mode - whole numbers
+              }
+              return Math.round(entry.value); // Other data - whole numbers
+            })()}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 // Calculate evenly spaced Y-axis with explicit ticks
 function calculateEvenYAxis(data: any[], dataKey: string, tickCount: number = 5): { domain: [number, number], ticks: number[] } {
   if (!data.length) return { domain: [0, 1], ticks: [] };
@@ -201,7 +225,6 @@ export default function SimulationWorkspace() {
   /* Preview and Continue functionality */
   const [previewData, setPreviewData] = useState<StepMetricsRaw[]>([]);
   const [canContinue, setCanContinue] = useState(false);
-  const [previewInfo, setPreviewInfo] = useState<string>("");
   const [loadingPreview, setLoadingPreview] = useState(false);
 
   /* Theme detection for reactive colors */
@@ -218,17 +241,6 @@ export default function SimulationWorkspace() {
   /* State to track sidebar height */
   const [sidebarHeight, setSidebarHeight] = useState<number>(0);
 
-  /* Error handler */
-  const errRef = useRef<HTMLDivElement>(null);
-  const debugRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (errRef.current) errRef.current.scrollTop = errRef.current.scrollHeight;
-  }, [errorMsg]);
-
-  useEffect(() => {
-    if (debugRef.current) debugRef.current.scrollTop = debugRef.current.scrollHeight;
-  }, [series.length, runId]);
 
   /* Measure sidebar height on mount and window resize */
   useEffect(() => {
@@ -275,14 +287,11 @@ export default function SimulationWorkspace() {
 
       if (data.has_data && data.preview_data) {
         setPreviewData(data.preview_data);
-        setPreviewInfo(data.message || `Loaded ${data.preview_data.length} historical steps`);
       } else {
         setPreviewData([]);
-        setPreviewInfo('No historical data found');
       }
     } catch (error) {
       console.error('Error loading preview:', error);
-      setPreviewInfo('Failed to load preview data');
       setPreviewData([]);
     } finally {
       setLoadingPreview(false);
@@ -352,19 +361,69 @@ export default function SimulationWorkspace() {
   const stockoutSeries = useMemo(
     () => {
       const combined = [...previewData, ...series];
-      return combined.map((d) => ({
-        label: d.current_date ? formatDateForInput(d.current_date) : addDays(inputs.start_date, Math.max(0, (d.step ?? 1) - 1)),
-        value: Number(d.stockout_rate ?? 0),
+      console.log('Processing stockout data:', combined.map(d => ({
+        step: d.step,
+        stockout_rate: d.stockout_rate,
+        total_products: d.total_products
+      })));
+
+      const rawSeries = combined.map((d) => {
+        // Use actual total_products from backend data
+        // Fallback to a reasonable estimate only if total_products is missing entirely
+        const totalProducts = Number(d.total_products) || (inputs.n_products_per_category * 34);
+
+        return {
+          label: d.current_date ? formatDateForInput(d.current_date) : addDays(inputs.start_date, Math.max(0, (d.step ?? 1) - 1)),
+          value: Number(d.stockout_rate ?? 0),
+          totalProducts: totalProducts,
+        };
+      });
+
+      // Check if we should show counts vs percentages
+      const maxStockoutRate = Math.max(...rawSeries.map(d => d.value));
+      const shouldShowCounts = maxStockoutRate < 10;
+
+      console.log('Stockout calculation:', {
+        maxStockoutRate,
+        shouldShowCounts,
+        sampleData: rawSeries.slice(0, 3).map(d => ({
+          label: d.label,
+          originalRate: d.value,
+          totalProducts: d.totalProducts,
+          calculatedValue: shouldShowCounts ? Math.round((d.value / 100) * d.totalProducts) : d.value
+        }))
+      });
+
+      return rawSeries.map((d) => ({
+        label: d.label,
+        value: shouldShowCounts
+          ? Math.round((d.value / 100) * d.totalProducts) // Convert percentage to actual count
+          : d.value, // Keep as percentage
       }));
     },
-    [series, previewData, inputs.start_date]
+    [series, previewData, inputs.start_date, inputs.n_products_per_category]
   );
 
   const totalsBar = useMemo(() => {
     const last = series.at(-1);
-    const totalCustomers1 = Number(last?.total_cust1 ?? 0)
+
+    // Use actual backend data when available
+    const totalCustomers1 = Number(last?.total_cust1 ?? 0);
     const totalCustomers2 = Number(last?.total_cust2 ?? 0);
-    const totalProducts = Number(last?.total_products ?? inputs.n_products_per_category);
+    const totalProducts = Number(last?.total_products ?? 0);
+
+    console.log('Bar graph data:', {
+      lastSeriesItem: last,
+      totalCustomers1,
+      totalCustomers2,
+      totalProducts,
+      fallbacks: {
+        customers1: inputs.n_customers1,
+        customers2: inputs.n_customers2,
+        products: inputs.n_products_per_category * 34
+      }
+    });
+
     return [
       { name: "Customers1", value: totalCustomers1 || inputs.n_customers1 },
       { name: "Customers2", value: totalCustomers2 || inputs.n_customers2 },
@@ -417,7 +476,6 @@ export default function SimulationWorkspace() {
     setSeries([]);
     setErrorMsg(null);
     setPreviewData([]);
-    setPreviewInfo("");
   }, [runId]);
 
   /* Cleanup on unmount */
@@ -553,17 +611,6 @@ export default function SimulationWorkspace() {
   const inputClass = "bg-input border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-0";
 
   const chartColors = useMemo(() => getChartColors(isDark), [isDark]);
-  const tooltipProps = {
-    contentStyle: {
-      backgroundColor: chartColors.tipBg,
-      borderColor: chartColors.tipBorder,
-      color: chartColors.axis,
-      borderRadius: '8px',
-      border: '1px solid'
-    },
-    labelStyle: { color: chartColors.axis },
-    itemStyle: { color: chartColors.axis },
-  } as const;
 
   return (
     <div className="w-full">
@@ -579,6 +626,29 @@ export default function SimulationWorkspace() {
             <CardTitle className="text-lg text-foreground">Simulation Parameters</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
+
+            {/* Status info */}
+            <div className="bg-muted/30 border border-border rounded-lg p-3 text-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-medium text-foreground">Status</span>
+                <span className={`px-2 py-1 rounded text-xs ${running ? 'bg-green-500/20 text-green-400' :
+                  series.length > 0 ? 'bg-blue-500/20 text-blue-400' :
+                    'bg-muted-foreground/20 text-muted-foreground'
+                  }`}>
+                  {running ? 'Running' : series.length > 0 ? 'Complete' : 'Ready'}
+                </span>
+              </div>
+              {runId && (
+                <div className="text-muted-foreground">
+                  <span>Run ID: </span><span className="font-mono">{runId.slice(-8)}</span>
+                </div>
+              )}
+              <div className="text-muted-foreground">
+                Steps: {series.length == inputs.max_steps ? series.length : 0} / {Number.isNaN(inputs.max_steps) ? 0 : inputs.max_steps}
+              </div>
+            </div>
+
+            {/* Start of Inputs */}
             <div className="space-y-2">
               <Label htmlFor="start_date" className="text-sm font-medium text-foreground">Start Date</Label>
               <Input
@@ -704,39 +774,6 @@ export default function SimulationWorkspace() {
               >
                 Reset
               </Button>
-
-              {/* Status info - more subtle */}
-              <div className="bg-muted/30 border border-border rounded-lg p-3 text-xs space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-foreground">Status</span>
-                  <span className={`px-2 py-1 rounded text-xs ${running ? 'bg-green-500/20 text-green-400' :
-                    series.length > 0 ? 'bg-blue-500/20 text-blue-400' :
-                      'bg-muted-foreground/20 text-muted-foreground'
-                    }`}>
-                    {running ? 'Running' : series.length > 0 ? 'Complete' : 'Ready'}
-                  </span>
-                </div>
-                {runId && (
-                  <div className="text-muted-foreground">
-                    <span>Run ID: </span><span className="font-mono">{runId.slice(-8)}</span>
-                  </div>
-                )}
-                <div className="text-muted-foreground">
-                  Steps: {series.length} / {inputs.max_steps}
-                </div>
-                {previewData.length > 0 && (
-                  <div className="text-muted-foreground">
-                    Preview: {previewData.length} historical steps
-                  </div>
-                )}
-                {previewInfo && (
-                  <div className="text-xs text-muted-foreground">
-                    {previewInfo}
-                  </div>
-                )}
-              </div>
-
-
             </div>
           </CardContent>
         </Card>
@@ -752,7 +789,7 @@ export default function SimulationWorkspace() {
             {/* Average purchases per customer type - 3 cols, 1 row */}
             <Card className="col-span-3 row-span-1 bg-card border-border flex flex-col">
               <CardHeader className="flex-shrink-0">
-                <CardTitle className="text-foreground">Average Purchases by Customer Type</CardTitle>
+                <CardTitle className="text-foreground">Average Number of Daily Purchases</CardTitle>
               </CardHeader>
               <CardContent className="flex-1 min-h-0">
                 <ResponsiveContainer width="100%" height="100%">
@@ -786,7 +823,7 @@ export default function SimulationWorkspace() {
                         };
                       })()}
                     />
-                    <Tooltip {...tooltipProps} />
+                    <Tooltip content={<CustomLineTooltip />} />
                     <Legend wrapperStyle={{ color: chartColors.axis, fontSize: '12px' }} />
                     <Line
                       type="monotone"
@@ -858,12 +895,12 @@ export default function SimulationWorkspace() {
             {/* Row 2: Daily Purchase Volume - 3 cols, 1 row */}
             <Card className="col-span-3 row-span-1 bg-card border-border flex flex-col">
               <CardHeader className="flex-shrink-0">
-                <CardTitle className="text-foreground">Daily Purchase Volume</CardTitle>
+                <CardTitle className="text-foreground">Total Daily Purchase Volume</CardTitle>
               </CardHeader>
               <CardContent className="flex-1 min-h-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <RLineChart data={totalPurchasesSeries}>
-                    <CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" />
+                    <CartesianGrid stroke={chartColors.grid} />
                     <XAxis
                       dataKey="label"
                       axisLine={{ stroke: chartColors.axis }}
@@ -889,7 +926,7 @@ export default function SimulationWorkspace() {
                         };
                       })()}
                     />
-                    <Tooltip {...tooltipProps} />
+                    <Tooltip content={<CustomLineTooltip />} />
                     <Line
                       type="monotone"
                       dataKey="value"
@@ -907,7 +944,12 @@ export default function SimulationWorkspace() {
             {/* Row 3: Stockout Rate - full width (5 cols, 1 row) */}
             <Card className="col-span-5 row-span-1 bg-card border-border flex flex-col">
               <CardHeader className="flex-shrink-0">
-                <CardTitle className="text-foreground">Stockout Rate (%)</CardTitle>
+                <CardTitle className="text-foreground">
+                  {(() => {
+                    const maxStockout = Math.max(...stockoutSeries.map(d => Number(d.value) || 0));
+                    return maxStockout < 10 ? "Number of Stockouts" : "Stockout Rate (%)";
+                  })()}
+                </CardTitle>
               </CardHeader>
               <CardContent className="flex-1 min-h-0">
                 <ResponsiveContainer width="100%" height="100%">
@@ -938,11 +980,14 @@ export default function SimulationWorkspace() {
                         };
                       })()}
                     />
-                    <Tooltip {...tooltipProps} />
+                    <Tooltip content={<CustomLineTooltip />} />
                     <Line
                       type="monotone"
                       dataKey="value"
-                      name="Stockout %"
+                      name={(() => {
+                        const maxStockout = Math.max(...stockoutSeries.map(d => Number(d.value) || 0));
+                        return maxStockout < 10 ? "Stockouts" : "Stockout %";
+                      })()}
                       stroke={chartColors.accent3}
                       strokeWidth={2.5}
                       dot={false}
