@@ -27,9 +27,9 @@ const getChartColors = (isDark: boolean) => {
   if (typeof window === 'undefined') return {
     grid: '#e5e7eb',
     axis: '#1f2937',
-    accent1: '#3b82f6',
-    accent2: '#10b981',
-    accent3: '#f59e0b',
+    primary: '#3b82f6',      // Light mode: blue, Dark mode: orange
+    secondary: '#ea580c',    // Light mode: orange, Dark mode: blue
+    accent: '#fb923c',       // Accent color for variety
   };
 
   const style = getComputedStyle(document.documentElement);
@@ -37,9 +37,9 @@ const getChartColors = (isDark: boolean) => {
   return {
     grid: `hsl(${style.getPropertyValue('--border')})`,
     axis: isDark ? '#e5e7eb' : '#374151', // High contrast: light gray in dark mode, dark gray in light mode
-    accent1: isDark ? '#60a5fa' : '#3b82f6', // Blue - lighter in dark mode
-    accent2: isDark ? '#34d399' : '#10b981', // Green - lighter in dark mode
-    accent3: isDark ? '#fbbf24' : '#f59e0b', // Yellow - lighter in dark mode
+    primary: isDark ? '#fb923c' : '#3b82f6',      // Dark mode: orange, Light mode: blue
+    secondary: isDark ? '#60a5fa' : '#ea580c',    // Dark mode: blue, Light mode: orange
+    accent: isDark ? '#fdba74' : '#fb923c',       // Lighter shade for accents
   };
 };
 
@@ -66,18 +66,18 @@ type StepMetricsRaw = {
 };
 
 
-// Choosing colors for barchart using CSS custom properties
+// Choosing colors for barchart using theme-aware color scheme
 const getBarColor = (name: string, isDark: boolean) => {
   const colors = getChartColors(isDark);
   switch (name) {
     case "Customers1":
-      return colors.accent1; // Blue
+      return colors.primary;   // Theme primary: blue (light) / orange (dark)
     case "Customers2":
-      return colors.accent2; // Green
+      return colors.secondary; // Theme secondary: orange (light) / blue (dark)
     case "Products":
-      return colors.accent3; // Yellow
+      return colors.accent;    // Accent color for variety
     default:
-      return colors.accent1;
+      return colors.primary;
   }
 };
 
@@ -829,7 +829,7 @@ export default function SimulationWorkspace() {
                       type="monotone"
                       dataKey="cust1"
                       name="Type 1"
-                      stroke={chartColors.accent1}
+                      stroke={chartColors.primary}
                       strokeWidth={2.5}
                       dot={false}
                       activeDot={{ r: 4 }}
@@ -838,7 +838,7 @@ export default function SimulationWorkspace() {
                       type="monotone"
                       dataKey="cust2"
                       name="Type 2"
-                      stroke={chartColors.accent2}
+                      stroke={chartColors.secondary}
                       strokeWidth={2.5}
                       dot={false}
                       activeDot={{ r: 4 }}
@@ -931,7 +931,7 @@ export default function SimulationWorkspace() {
                       type="monotone"
                       dataKey="value"
                       name="Total Purchases"
-                      stroke={chartColors.accent2}
+                      stroke={chartColors.primary}
                       strokeWidth={3}
                       dot={false}
                       activeDot={{ r: 5 }}
@@ -988,7 +988,7 @@ export default function SimulationWorkspace() {
                         const maxStockout = Math.max(...stockoutSeries.map(d => Number(d.value) || 0));
                         return maxStockout < 10 ? "Stockouts" : "Stockout %";
                       })()}
-                      stroke={chartColors.accent3}
+                      stroke={chartColors.primary}
                       strokeWidth={2.5}
                       dot={false}
                       activeDot={{ r: 4 }}
