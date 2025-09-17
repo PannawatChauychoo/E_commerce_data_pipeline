@@ -3,8 +3,14 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ThemeToggle } from './theme-toggle';
+import { Download } from 'lucide-react';
+import { Button } from './ui/button';
 
-const Header = () => {
+interface HeaderProps {
+  onMenuClick?: () => void;
+}
+
+const Header = ({ onMenuClick }: HeaderProps) => {
   const pathname = usePathname();
 
   const navItems = [
@@ -46,6 +52,15 @@ const Header = () => {
             </ul>
           </nav>
           <ThemeToggle />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onMenuClick}
+            className="h-9 w-9 px-0"
+          >
+            <Download className="h-4 w-4" />
+            <span className="sr-only">Download files</span>
+          </Button>
           <div className="md:hidden">
             <button className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

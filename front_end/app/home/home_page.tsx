@@ -1,11 +1,17 @@
+"use client";
+
+import { useState } from 'react';
 import PipelineVisualization from "@/components/PipelineVisualization";
 import Header from "@/components/Header";
 import SimulationWorkspace from "@/components/SimulationVisualization";
+import { FileSidebar } from "@/components/FileSidebar";
 
 export default function Home() {
+  const [isFileSidebarOpen, setIsFileSidebarOpen] = useState(false);
+
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      <Header onMenuClick={() => setIsFileSidebarOpen(true)} />
       <main>
         <div className="container mx-auto px-6 py-12 space-y-12">
           <div className="text-center space-y-4 mb-12">
@@ -22,6 +28,10 @@ export default function Home() {
           <SimulationWorkspace />
         </div>
       </main>
+      <FileSidebar
+        isOpen={isFileSidebarOpen}
+        onClose={() => setIsFileSidebarOpen(false)}
+      />
     </div>
   );
 }

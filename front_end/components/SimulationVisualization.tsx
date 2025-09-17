@@ -443,6 +443,12 @@ export default function SimulationWorkspace() {
               ? v
               : Number.parseInt(v, 10),
         }));
+
+        // Reset series when max_steps changes to show correct progress
+        if (key === "max_steps") {
+          setSeries([]);
+          setPreviewData([]);
+        }
       };
 
   /* Slider handler for numeric inputs */
@@ -644,7 +650,7 @@ export default function SimulationWorkspace() {
                 </div>
               )}
               <div className="text-muted-foreground">
-                Steps: {series.length == inputs.max_steps ? series.length : 0} / {Number.isNaN(inputs.max_steps) ? 0 : inputs.max_steps}
+                Steps: {series.length} / {Number.isNaN(inputs.max_steps) ? 0 : inputs.max_steps}
               </div>
             </div>
 
