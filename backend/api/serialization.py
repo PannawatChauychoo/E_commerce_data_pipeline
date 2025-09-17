@@ -11,6 +11,7 @@ class SimulationInputSerializer(serializers.Serializer):
     n_customers1 = serializers.IntegerField(min_value=0)
     n_customers2 = serializers.IntegerField(min_value=0)
     n_products_per_category = serializers.IntegerField(min_value=1, max_value=100000)
+    continue_existing = serializers.BooleanField(default=False, required=False)
 
     def validate(self, data):
         # Cross-field rule: need at least one customer overall

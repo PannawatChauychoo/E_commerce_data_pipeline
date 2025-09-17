@@ -2,14 +2,17 @@
 import threading
 import traceback
 import uuid
+import os
 from dataclasses import dataclass, field
 from datetime import timedelta
+from pathlib import Path
 from threading import Lock
 from typing import Any, Dict, List
 
-from django.db.models import Case, DecimalField, F, Sum, When
+from django.db.models import Case, DecimalField, F, Sum, When, Count, Avg
 from django.http import Http404, JsonResponse
 from django.utils import timezone
+from django.db import connection
 from helper.save_load import load_agents_from_newest, save_agents
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny
@@ -21,6 +24,89 @@ from .models import Cust1, Cust2, Products, SimulationRun, Transactions
 from .serialization import (Cust1Serializer, Cust2Serializer,
                             ProductSerializer, SimulationInputSerializer,
                             TransactionSerializer)
+
+
+# --- Simple file-based helper functions (no database dependency)
+def check_agm_output_exists():
+    """
+    Simple check: does agm_output folder have any run directories?
+    This determines if continuation is possible.
+    """
+    try:
+        data_source_path = Path(__file__).resolve().parent.parent.parent / 'data_pipeline' / 'data_source' / 'agm_output'
+        
+        if not data_source_path.exists():
+            return False
+            
+        # Check if there are any run directories
+        run_dirs = [d for d in data_source_path.iterdir() if d.is_dir() and d.name.startswith('run_time=')]
+        return len(run_dirs) > 0
+    except Exception:
+        return False
+
+
+def get_latest_csv_metrics():
+    """
+    Read the latest metrics CSV file from agm_output folder.
+    Uses the same structure as WalmartModel.get_current_step_metrics_for_graphs()
+    Returns formatted data for frontend charts.
+    """
+    try:
+        data_source_path = Path(__file__).resolve().parent.parent.parent / 'data_pipeline' / 'data_source' / 'agm_output'
+
+        if not data_source_path.exists():
+            return None
+
+        # Find the most recent run directory
+        run_dirs = [d for d in data_source_path.iterdir() if d.is_dir() and d.name.startswith('run_time=')]
+        if not run_dirs:
+            return None
+
+        latest_run_dir = max(run_dirs, key=lambda x: x.stat().st_mtime)
+
+        # Find the metrics CSV file
+        metrics_files = list(latest_run_dir.glob('id=*_metrics.csv'))
+        if not metrics_files:
+            return None
+
+        metrics_file = metrics_files[0]
+
+        # Read CSV file using pandas for better data handling
+        import pandas as pd
+        df = pd.read_csv(metrics_file)
+
+        metrics = []
+        latest_simulated_date = None
+
+        for idx, row in df.iterrows():
+            # Use the same structure as get_current_step_metrics_for_graphs()
+            step_metrics = {
+                'step': idx + 1,
+                'current_date': str(row.get('Current Date', '')),
+                'cust1_avg_purchase': float(row.get('Avg_Purchases_Cust1', 0)),
+                'cust2_avg_purchase': float(row.get('Avg_Purchases_Cust2', 0)),
+                'total_daily_purchases': int(row.get('Total_Daily_Purchase', 0)),
+                'total_cust1': int(row.get('Total_cust1', 0)),
+                'total_cust2': int(row.get('Total_cust2', 0)),
+                'total_products': int(row.get('Total_products', 0)),
+                'stockout_rate': float(row.get('Stockout', 0))
+            }
+            metrics.append(step_metrics)
+
+            # Track the latest simulated date from the Current Date column
+            if step_metrics['current_date']:
+                latest_simulated_date = step_metrics['current_date']
+
+        return {
+            'metrics': metrics,
+            'run_dir': latest_run_dir.name,
+            'metrics_file': metrics_file.name,
+            'total_steps': len(metrics),
+            'latest_simulated_date': latest_simulated_date
+        }
+    except Exception as e:
+        print(f"Error reading CSV: {e}")
+        return None
 
 
 # --- Setting up the simulation API to run and populate the graph
@@ -42,31 +128,31 @@ RUN_LOCK = Lock()
 def run_in_background(run_id: str, inputs: Dict[str, str | int]):
     """
     Build + run the Mesa model and push step metrics into RUNS[run_id].steps.
-
-    Execution order:
-      1) Initialize WalmartModel(**args, data_dir=DATA_DIR)
-      2) model.check_load_match_index()
-      3) model.initialize_extra_agents(...)
-      4) For each day: model.step() -> map_metrics -> append RUNS[run_id].steps
-      5) Save the files
-      6) Load the files to PostgreSQL
+    Uses your existing WalmartModel logic - it already handles continuation automatically.
     """
     try:
         days = int(inputs.get("max_steps", 0))
         if days <= 0:
             raise ValueError("max_steps must be > 0")
 
-        model = WalmartModel(**inputs)
+        # Initialize WalmartModel with your existing parameters
+        model = WalmartModel(
+            start_date=inputs.get('start_date'),
+            max_steps=days,
+            n_customers1=inputs.get('n_customers1', 100),
+            n_customers2=inputs.get('n_customers2', 100),
+            n_products_per_category=inputs.get('n_products_per_category', 5),
+            mode='prod'
+        )
+        
+        # Use your existing agent loading logic
         loaded_file, loaded_id_dict, metadata = load_agents_from_newest(
             model, model.class_registry, mode="prod"
         )
         if loaded_file and loaded_id_dict and metadata:
-            print(
-                f"Agents loaded {len(loaded_id_dict)} with max id: {max(loaded_id_dict)}"
-            )
-            print(f"Metadata: {metadata}")
+            print(f"Agents loaded {len(loaded_id_dict)} with max id: {max(loaded_id_dict)}")
         else:
-            print("No saved files")
+            print("No saved files - starting fresh simulation")
 
         model.initialize_extra_agents()
 
@@ -76,6 +162,7 @@ def run_in_background(run_id: str, inputs: Dict[str, str | int]):
                 return
             st.total_steps = days
 
+        # Run simulation steps
         for s in range(1, days + 1):
             metrics = model.step()
 
@@ -92,11 +179,12 @@ def run_in_background(run_id: str, inputs: Dict[str, str | int]):
             if st and st.status != "stopped":
                 st.status = "finished"
 
-        # Saving the files
+        # Save results using your existing logic
         result_df = model.save_results_as_df()
         final_paths, model_id = model.write_results_csv(result_df)
         print(f"Model {model_id} is finished and saved!")
-        saved_file, metadata = save_agents(model)
+        
+        saved_file, metadata = save_agents(model, keep_last=5, mode="prod")
         for f in final_paths:
             assert f.exists(), print(f"Cannot find file {f}")
 
@@ -106,6 +194,7 @@ def run_in_background(run_id: str, inputs: Dict[str, str | int]):
 
     except Exception as e:
         err = f"{e}\n{traceback.format_exc()}"
+        print(f"Simulation error: {err}")
         with RUN_LOCK:
             st = RUNS.get(run_id)
             if st:
@@ -133,16 +222,27 @@ class StartSimulationView(APIView):
         payload: Dict[str, Any] = dict(serializer.validated_data)
 
         run_id = str(uuid.uuid4())
+        
+        # Simple continuation check - your WalmartModel handles the rest
+        continue_existing = payload.get('continue_existing', False)
+        if continue_existing:
+            print("Continue mode requested - WalmartModel will handle continuation logic")
+        
         with RUN_LOCK:
             RUNS[run_id] = RunState(
-                inputs=payload, status="running", steps=[], step=0, total_steps=0
+                inputs=payload, 
+                status="running", 
+                steps=[], 
+                step=0, 
+                total_steps=0
             )
 
-        # Running the simulation with threads
+        # Running the simulation with threads - your existing logic
         t = threading.Thread(
             target=run_in_background, args=(run_id, payload), daemon=True
         )
         t.start()
+        
         return JsonResponse({"run_id": run_id}, status=status.HTTP_201_CREATED)
 
 
@@ -175,6 +275,54 @@ class RunProgressView(APIView):
                 # wipe this run so UI is clean after reset
                 RUNS.pop(run_id, None)
         return JsonResponse({"ok": True})
+
+
+class ContinuityCheckView(APIView):
+    """
+    GET /api/simulate/can-continue/ -> Simple check if agm_output has files
+    """
+    permission_classes = [AllowAny]
+    
+    def get(self, request):
+        can_continue = check_agm_output_exists()
+        return JsonResponse({'can_continue': can_continue})
+
+
+class SimulationPreviewView(APIView):
+    """
+    GET /api/simulate/preview/ -> Load CSV metrics from agm_output folder
+    """
+    permission_classes = [AllowAny]
+    
+    def get(self, request):
+        try:
+            csv_info = get_latest_csv_metrics()
+            
+            if not csv_info:
+                return JsonResponse({
+                    'preview_data': [],
+                    'has_data': False,
+                    'message': 'No CSV files found in agm_output folder'
+                })
+            
+            return JsonResponse({
+                'preview_data': csv_info['metrics'],
+                'has_data': True,
+                'run_info': {
+                    'run_dir': csv_info['run_dir'],
+                    'metrics_file': csv_info['metrics_file']
+                },
+                'total_historical_steps': csv_info['total_steps'],
+                'latest_simulated_date': csv_info.get('latest_simulated_date'),
+                'message': f'Loaded {csv_info["total_steps"]} steps from {csv_info["run_dir"]}'
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'error': f'Failed to load CSV: {str(e)}',
+                'preview_data': [],
+                'has_data': False
+            }, status=500)
 
 
 # --- Getting the table views for Dashboard ---

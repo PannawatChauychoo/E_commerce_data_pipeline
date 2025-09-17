@@ -1,11 +1,13 @@
 from django.urls import path
 
-from .views import (Cust1ListView, Cust2ListView, ProductListView,
-                    RunProgressView, StartSimulationView, TransactionListView)
+from .views import (Cust1ListView, Cust2ListView, ContinuityCheckView, ProductListView,
+                    RunProgressView, SimulationPreviewView, StartSimulationView, TransactionListView)
 
 urlpatterns = [
     path("transactions/", TransactionListView.as_view(), name="transactions-list"),
     path("simulate/", StartSimulationView.as_view(), name="simulate"),
+    path("simulate/can-continue/", ContinuityCheckView.as_view(), name="can-continue"),
+    path("simulate/preview/", SimulationPreviewView.as_view(), name="simulate-preview"),
     path("simulate/<str:run_id>", RunProgressView.as_view(), name="simulate-progress"),
     path("cust1/", Cust1ListView.as_view(), name="cust1-list"),
     path("cust2/", Cust2ListView.as_view(), name="cust2-list"),

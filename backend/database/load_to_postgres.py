@@ -276,6 +276,7 @@ def load_transactions(cur, schema, csv_paths):
     trans_df = pd.read_csv(trans_path)
 
     staging, cols = stage_copy_dataframe(cur, schema, table, trans_df, include_pk=True)
+
     # Simple idempotent insert:
     cur.execute(
         f"""
@@ -286,7 +287,7 @@ def load_transactions(cur, schema, csv_paths):
         s.product_id,
         s.unit_price,
         s.quantity,
-        TO_DATE(s.date_purchased::text, 'YYYYMMDD'),
+        s.date_purchased,
         s.category,
         s.run_id
         FROM {staging} s
@@ -305,7 +306,7 @@ def load_transactions(cur, schema, csv_paths):
         s.product_id,
         s.unit_price,
         s.quantity,
-        TO_DATE(s.date_purchased::text, 'YYYYMMDD'),
+        s.date_purchased,
         s.category,
         s.run_id
         FROM {staging} s
