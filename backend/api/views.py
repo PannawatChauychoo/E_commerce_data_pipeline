@@ -10,7 +10,7 @@ from threading import Lock
 from typing import Any, Dict, List
 
 from django.db.models import Case, DecimalField, F, Sum, When, Count, Avg
-from django.http import Http404, JsonResponse
+from django.http import Http404, JsonResponse, HttpResponse, FileResponse
 from django.utils import timezone
 from django.db import connection
 from helper.save_load import load_agents_from_newest, save_agents
@@ -418,3 +418,129 @@ class ProductListView(BaseSpendingListView):
         """
 
         return Products.objects.raw(raw_query, [limit])
+
+
+# --- File Management Views ---
+def get_agm_output_files():
+    """
+    Scan agm_output folder and return structured file information
+    """
+    try:
+        data_source_path = Path(__file__).resolve().parent.parent.parent / 'data_pipeline' / 'data_source' / 'agm_output'
+
+        if not data_source_path.exists():
+            return []
+
+        runs = []
+        run_dirs = [d for d in data_source_path.iterdir() if d.is_dir() and d.name.startswith('run_time=')]
+
+        for run_dir in sorted(run_dirs, key=lambda x: x.stat().st_mtime, reverse=True):
+            # Extract date from folder name: run_time=2024-09-17
+            date_str = run_dir.name.replace('run_time=', '')
+
+            files = []
+            csv_files = list(run_dir.glob('id=*_*.csv'))
+
+            for csv_file in csv_files:
+                # Extract file type from filename: id=123456_transactions.csv -> transactions
+                filename_parts = csv_file.name.split('_')
+                if len(filename_parts) >= 2:
+                    file_type = filename_parts[1].replace('.csv', '')
+                    file_size = csv_file.stat().st_size
+
+                    # Format file size
+                    if file_size < 1024:
+                        size_str = f"{file_size} B"
+                    elif file_size < 1024 * 1024:
+                        size_str = f"{file_size / 1024:.1f} KB"
+                    else:
+                        size_str = f"{file_size / (1024 * 1024):.1f} MB"
+
+                    files.append({
+                        'name': file_type,
+                        'size': size_str,
+                        'path': str(csv_file.relative_to(data_source_path)),
+                        'full_filename': csv_file.name,
+                        'modified': csv_file.stat().st_mtime
+                    })
+
+            if files:  # Only include runs that have CSV files
+                # Extract run ID from first file
+                run_id = None
+                if files:
+                    first_file = files[0]['full_filename']
+                    if first_file.startswith('id='):
+                        run_id = first_file.split('_')[0].replace('id=', '')
+
+                runs.append({
+                    'id': run_id or 'unknown',
+                    'date': date_str,
+                    'time': run_dir.stat().st_ctime,  # Use creation time as approximate time
+                    'files': sorted(files, key=lambda x: x['name'])
+                })
+
+        return runs
+
+    except Exception as e:
+        print(f"Error scanning agm_output files: {e}")
+        return []
+
+
+class FileListView(APIView):
+    """
+    GET /api/files/list/ -> List all simulation runs and their CSV files
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        try:
+            files = get_agm_output_files()
+            return JsonResponse({
+                'runs': files,
+                'total_runs': len(files)
+            })
+        except Exception as e:
+            return JsonResponse({
+                'error': f'Failed to list files: {str(e)}',
+                'runs': [],
+                'total_runs': 0
+            }, status=500)
+
+
+class FileDownloadView(APIView):
+    """
+    GET /api/files/download/<str:file_path>/ -> Download a specific CSV file
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request, file_path: str):
+        try:
+            data_source_path = Path(__file__).resolve().parent.parent.parent / 'data_pipeline' / 'data_source' / 'agm_output'
+
+            # Construct full file path
+            full_file_path = data_source_path / file_path
+
+            # Security check: ensure file is within agm_output directory
+            if not str(full_file_path.resolve()).startswith(str(data_source_path.resolve())):
+                return JsonResponse({'error': 'Invalid file path'}, status=400)
+
+            if not full_file_path.exists():
+                return JsonResponse({'error': 'File not found'}, status=404)
+
+            if not full_file_path.is_file():
+                return JsonResponse({'error': 'Path is not a file'}, status=400)
+
+            # Create file response
+            response = FileResponse(
+                open(full_file_path, 'rb'),
+                as_attachment=True,
+                filename=full_file_path.name
+            )
+            response['Content-Type'] = 'text/csv'
+
+            return response
+
+        except Exception as e:
+            return JsonResponse({
+                'error': f'Failed to download file: {str(e)}'
+            }, status=500)
