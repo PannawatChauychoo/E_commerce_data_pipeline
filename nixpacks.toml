@@ -1,0 +1,17 @@
+[providers]
+python = "3.11"
+
+[phases.setup]
+nixPkgs = ['python311', 'pip']
+
+[phases.install]
+cmds = ['pip install -r requirements.txt']
+
+[phases.build]
+cmds = [
+  'cd backend && python manage.py collectstatic --noinput',
+  'echo "Skipping migrations for cache-only deployment"'
+]
+
+[start]
+cmd = 'cd backend && gunicorn rest_api.wsgi --bind 0.0.0.0:$PORT'
