@@ -21,6 +21,8 @@ import {
   Cell,
 } from "recharts";
 
+const API_ORIGIN = process.env.NEXT_PUBLIC_API_ORIGIN ?? "http://localhost:8000";
+
 
 /* ---------- Updated Color system using CSS custom properties ---------- */
 const getChartColors = (isDark: boolean) => {
@@ -265,7 +267,7 @@ export default function SimulationWorkspace() {
   /* Check if we can continue from previous simulation */
   const checkCanContinue = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/simulate/can-continue/', {
+      const response = await fetch(`${API_ORIGIN}/api/simulate/can-continue/`, {
         credentials: 'include',
       });
       const data = await response.json();
@@ -280,7 +282,7 @@ export default function SimulationWorkspace() {
   const loadPreview = useCallback(async () => {
     setLoadingPreview(true);
     try {
-      const response = await fetch('http://localhost:8000/api/simulate/preview/', {
+      const response = await fetch(`${API_ORIGIN}/api/simulate/preview/`, {
         credentials: 'include',
       });
       const data = await response.json();
@@ -546,7 +548,7 @@ export default function SimulationWorkspace() {
     // ---- Kick off backend run
     try {
       const csrf = getCSRFCookie();
-      const res = await fetch("http://localhost:8000/api/simulate/", {
+      const res = await fetch(`${API_ORIGIN}/api/simulate/`, {
         method: "POST",
         credentials: "include",           // allow cookies/session
         headers: {
@@ -568,7 +570,7 @@ export default function SimulationWorkspace() {
       let since = 0;
       pollRef.current = setInterval(async () => {
         try {
-          const r = await fetch(`http://localhost:8000/api/simulate/${run_id}?since=${since}`, {
+          const r = await fetch(`${API_ORIGIN}/api/simulate/${run_id}?since=${since}`, {
             credentials: "include",
             headers: { "Accept": "application/json" },
           });

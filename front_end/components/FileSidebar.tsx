@@ -8,6 +8,8 @@ import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Separator } from './ui/separator';
 
+const API_ORIGIN = process.env.NEXT_PUBLIC_API_ORIGIN ?? "http://localhost:8000";
+
 interface FileInfo {
   name: string;
   size: string;
@@ -45,7 +47,7 @@ export function FileSidebar({ isOpen, onClose }: FileSidebarProps) {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('http://localhost:8000/api/files/list/');
+      const response = await fetch(`${API_ORIGIN}/api/files/list/`);
       if (!response.ok) {
         throw new Error('Failed to fetch files');
       }
@@ -98,7 +100,7 @@ export function FileSidebar({ isOpen, onClose }: FileSidebarProps) {
   const loadPreviewData = async (fileKey: string, filePath: string) => {
     try {
       // Download the CSV file
-      const response = await fetch(`http://localhost:8000/api/files/download/${filePath}/`);
+      const response = await fetch(`${API_ORIGIN}/api/files/download/${filePath}/`);
       if (!response.ok) {
         throw new Error('Failed to download file');
       }
@@ -132,7 +134,7 @@ export function FileSidebar({ isOpen, onClose }: FileSidebarProps) {
 
   const handleDownload = (filePath: string, fileName: string) => {
     // Create download link
-    const downloadUrl = `http://localhost:8000/api/files/download/${filePath}/`;
+    const downloadUrl = `${API_ORIGIN}/api/files/download/${filePath}/`;
     const link = document.createElement('a');
     link.href = downloadUrl;
     link.download = fileName;
