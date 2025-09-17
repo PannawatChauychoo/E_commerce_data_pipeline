@@ -392,6 +392,7 @@ class WalmartModel(Model):
         latest_row = model_data.iloc[-1]
         return {
             "step": self.schedule.steps,
+            "current_date": str(latest_row.get("Current Date")),
             "cust1_avg_purchase": float(latest_row.get("Avg_Purchases_Cust1")),
             "cust2_avg_purchase": float(latest_row.get("Avg_Purchases_Cust2")),
             "total_daily_purchases": int(latest_row.get("Total_Daily_Purchase")),

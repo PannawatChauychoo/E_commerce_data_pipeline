@@ -1,10 +1,10 @@
 {
-  "Cust1": 100,
-  "Cust2": 5100,
+  "Cust1": 500,
+  "Cust2": 5500,
   "Product": 10170,
-  "Transaction": 100526,
-  "total_transaction": 526,
-  "total_customer1": 100,
-  "total_customer2": 100,
+  "Transaction": 1145648,
+  "total_transaction": 1045648,
+  "total_customer1": 500,
+  "total_customer2": 500,
   "total_product": 170
 }
