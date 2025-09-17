@@ -1,0 +1,18 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "cd backend && gunicorn --worker-class uvicorn.workers.UvicornWorker --workers 4 --bind 0.0.0.0:$PORT rest_api.wsgi:application"
+healthcheckPath = "/api/"
+healthcheckTimeout = 100
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 10
+
+[variables]
+# Railway will set DATABASE_URL automatically
+# You need to manually set these in Railway dashboard:
+# SECRET_KEY=your-secret-key
+# DEBUG=False
+# ALLOWED_HOSTS=your-app.railway.app
+# CORS_ALLOWED_ORIGINS=https://your-vercel-app.vercel.app
+# CSRF_TRUSTED_ORIGINS=https://your-vercel-app.vercel.app

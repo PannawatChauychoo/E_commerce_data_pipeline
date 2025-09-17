@@ -1,1 +1,1 @@
-web: cd backend && gunicorn rest_api.wsgi --bind 0.0.0.0:$PORT
+web: cd backend && gunicorn --worker-class uvicorn.workers.UvicornWorker --workers 4 --bind 0.0.0.0:$PORT rest_api.wsgi:application
