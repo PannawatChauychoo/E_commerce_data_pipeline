@@ -14,6 +14,7 @@ import os
 import sys
 from pathlib import Path
 
+import dj_database_url
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -30,9 +31,9 @@ sys.path.append(os.path.join(BASE_DIR, "../data_pipeline/method"))
 SECRET_KEY = "django-insecure-y7k@o+%51pcs9!^zzs0ub9rxa#b&c009*r5p_#v@sy8177md_4"
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DEBUG", "True").lower() == "true"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
 
 # Application definition
@@ -88,30 +89,54 @@ WSGI_APPLICATION = "rest_api.wsgi.application"
 
 CORS_ALLOW_ALL_ORIGINS = False
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+# Environment-aware CORS settings
+CORS_ALLOWED_ORIGINS = os.getenv(
+    "CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"
+).split(",")
 
 CORS_ALLOW_CREDENTIALS = True
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+CSRF_TRUSTED_ORIGINS = os.getenv(
+    "CSRF_TRUSTED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"
+).split(",")
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("DB_NAME"),
-        "USER": os.getenv("DB_USER"),
-        "PASSWORD": os.getenv("DB_PASSWORD"),
-        "HOST": os.getenv("DB_HOST", "localhost"),
-        "PORT": int(os.getenv("PORT", 5432)),
-        "OPTIONS": {"options": "-c search_path=walmart"},
+# Database configuration - Railway uses DATABASE_URL in production
+
+# Check if we should disable database (for cache-only deployment)
+DISABLE_DATABASE = os.getenv("DISABLE_DATABASE", "False").lower() == "true"
+
+if DISABLE_DATABASE:
+    # Cache-only mode: Use dummy database
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.dummy",
+        }
     }
-}
+elif os.getenv("DATABASE_URL"):
+    # Production: Use Railway's DATABASE_URL
+    DATABASES = {
+        "default": dj_database_url.config(
+            default=os.getenv("DATABASE_URL"),
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
+    }
+    # Ensure walmart schema is used in production
+    DATABASES["default"]["OPTIONS"] = {"options": "-c search_path=walmart"}
+else:
+    # Development: Use individual env vars
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("DB_NAME"),
+            "USER": os.getenv("DB_USER"),
+            "PASSWORD": os.getenv("DB_PASSWORD"),
+            "HOST": os.getenv("DB_HOST", "localhost"),
+            "PORT": int(os.getenv("DB_PORT", 5432)),
+            "OPTIONS": {"options": "-c search_path=walmart"},
+        }
+    }
 
 AUTH_PASSWORD_VALIDATORS = [
     {
