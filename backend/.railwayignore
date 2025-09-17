@@ -1,0 +1,6 @@
+../pyproject.toml
+../uv.lock
+../.venv/
+**/pyproject.toml
+**/uv.lock
+**/.venv/
