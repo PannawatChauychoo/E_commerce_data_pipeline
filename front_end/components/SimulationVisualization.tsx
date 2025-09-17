@@ -681,13 +681,13 @@ export default function SimulationWorkspace() {
                 value={[inputs.n_customers1]}
                 onValueChange={onSliderChange("n_customers1")}
                 min={0}
-                max={5000}
+                max={1000}
                 step={10}
                 className="w-full"
               />
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>0</span>
-                <span>5,000</span>
+                <span>1,000</span>
               </div>
             </div>
 
@@ -701,13 +701,13 @@ export default function SimulationWorkspace() {
                 value={[inputs.n_customers2]}
                 onValueChange={onSliderChange("n_customers2")}
                 min={0}
-                max={5000}
+                max={1000}
                 step={10}
                 className="w-full"
               />
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>0</span>
-                <span>5,000</span>
+                <span>1,000</span>
               </div>
             </div>
 
