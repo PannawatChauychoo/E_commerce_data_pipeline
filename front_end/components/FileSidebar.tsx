@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Download, Eye, ChevronDown, ChevronRight, File, Calendar, Loader2 } from 'lucide-react';
+import { X, Download, Eye, ChevronDown, ChevronRight, File, Calendar, Loader2, FolderDown } from 'lucide-react';
 import Papa from 'papaparse';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
@@ -147,6 +147,17 @@ export function FileSidebar({ isOpen, onClose }: FileSidebarProps) {
     document.body.removeChild(link);
   };
 
+  const handleBulkDownload = (runId: string, runTime: string) => {
+    // Create bulk download link
+    const downloadUrl = `${API_ORIGIN}/api/files/bulk-download/${runId}/`;
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = `simulation_${runTime.replace(/[^\w\-_\.]/g, '_')}.zip`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -217,25 +228,35 @@ export function FileSidebar({ isOpen, onClose }: FileSidebarProps) {
                     <Card
                       key={run.id}
                       className={`p-4 transition-all duration-300 ${isNewRun
-                        ? 'ring-2 ring-orange-400'
+                        ? 'ring-2 ring-orange-300'
                         : ''
                         }`}
                     >
                       {/* Run Header */}
-                      <button
-                        onClick={() => toggleRunExpansion(run.id)}
-                        className="w-full flex items-center justify-between text-left hover:text-primary transition-colors"
-                      >
-                        <div className="flex items-center gap-2">
-                          {expandedRuns.has(run.id) ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4" />
-                          )}
-                          <Calendar className="h-4 w-4" />
-                          <span className="font-medium">{run.time}</span>
-                        </div>
-                      </button>
+                      <div className="flex items-center justify-between">
+                        <button
+                          onClick={() => toggleRunExpansion(run.id)}
+                          className="flex-1 flex items-center gap-2 text-left hover:text-gray-500 transition-colors"
+                        >
+                          <div className="flex items-center gap-2">
+                            {expandedRuns.has(run.id) ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
+                            <Calendar className="h-4 w-4" />
+                            <span className="font-medium">{run.time}</span>
+                          </div>
+                        </button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleBulkDownload(run.id, run.time)}
+                          className="h-8 w-8 px-0 hover:text-orange-300 transition-all duration-200"
+                        >
+                          <FolderDown className="h-4 w-4" />
+                        </Button>
+                      </div>
 
                       {/* Files List */}
                       <AnimatePresence>
