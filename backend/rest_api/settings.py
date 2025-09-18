@@ -21,8 +21,21 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
-# Helping find simulation error in method
-sys.path.append(os.path.join(BASE_DIR, "../data_pipeline/method"))
+# Add data_pipeline/method to Python path for imports
+# This works for both local development and Railway deployment
+method_path = os.path.join(BASE_DIR, "../data_pipeline/method")
+if os.path.exists(method_path):
+    sys.path.append(method_path)
+else:
+    # Fallback for Railway - try from project root
+    root_method_path = os.path.join(BASE_DIR, "../../data_pipeline/method")
+    if os.path.exists(root_method_path):
+        sys.path.append(root_method_path)
+    else:
+        # Last fallback - current working directory based
+        cwd_method_path = os.path.join(os.getcwd(), "data_pipeline/method")
+        if os.path.exists(cwd_method_path):
+            sys.path.append(cwd_method_path)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
