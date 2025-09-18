@@ -35,6 +35,7 @@ export function FileSidebar({ isOpen, onClose }: FileSidebarProps) {
   const [simulationRuns, setSimulationRuns] = useState<SimulationRun[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [clickedRuns, setClickedRuns] = useState<Set<string>>(new Set());
 
   // Fetch simulation runs from API
   useEffect(() => {
@@ -81,6 +82,9 @@ export function FileSidebar({ isOpen, onClose }: FileSidebarProps) {
       newExpanded.add(runId);
     }
     setExpandedRuns(newExpanded);
+
+    // Mark run as clicked (to remove the bright border)
+    setClickedRuns(prev => new Set(prev).add(runId));
   };
 
   const togglePreview = (fileKey: string, filePath: string) => {
@@ -207,130 +211,139 @@ export function FileSidebar({ isOpen, onClose }: FileSidebarProps) {
                   <p className="text-sm">Run a simulation to generate CSV files</p>
                 </div>
               ) : (
-                simulationRuns.map((run) => (
-                  <Card key={run.id} className="p-4">
-                    {/* Run Header */}
-                    <button
-                      onClick={() => toggleRunExpansion(run.id)}
-                      className="w-full flex items-center justify-between text-left hover:text-primary transition-colors"
+                simulationRuns.map((run) => {
+                  const isNewRun = !clickedRuns.has(run.id);
+                  return (
+                    <Card
+                      key={run.id}
+                      className={`p-4 transition-all duration-300 ${isNewRun
+                        ? 'ring-2 ring-orange-400'
+                        : ''
+                        }`}
                     >
-                      <div className="flex items-center gap-2">
-                        {expandedRuns.has(run.id) ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
-                        <Calendar className="h-4 w-4" />
-                        <span className="font-medium">{run.time}</span>
-                      </div>
-                    </button>
+                      {/* Run Header */}
+                      <button
+                        onClick={() => toggleRunExpansion(run.id)}
+                        className="w-full flex items-center justify-between text-left hover:text-primary transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          {expandedRuns.has(run.id) ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                          <Calendar className="h-4 w-4" />
+                          <span className="font-medium">{run.time}</span>
+                        </div>
+                      </button>
 
-                    {/* Files List */}
-                    <AnimatePresence>
-                      {expandedRuns.has(run.id) && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          className="mt-3 space-y-2"
-                        >
-                          <Separator />
-                          {run.files.map((file) => {
-                            const fileKey = `${run.id}_${file.name}`;
-                            return (
-                              <div key={file.name} className="space-y-2">
-                                {/* File Info */}
-                                <div className="flex items-center justify-between p-2 rounded-lg hover:bg-accent/50 transition-colors">
-                                  <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-sm truncate">
-                                      {file.name}.csv
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                      {file.size}
-                                    </p>
+                      {/* Files List */}
+                      <AnimatePresence>
+                        {expandedRuns.has(run.id) && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="mt-3 space-y-2"
+                          >
+                            <Separator />
+                            {run.files.map((file) => {
+                              const fileKey = `${run.id}_${file.name}`;
+                              return (
+                                <div key={file.name} className="space-y-2">
+                                  {/* File Info */}
+                                  <div className="flex items-center justify-between p-2 rounded-lg hover:bg-accent/50 transition-colors">
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-medium text-sm truncate">
+                                        {file.name}.csv
+                                      </p>
+                                      <p className="text-xs text-muted-foreground">
+                                        {file.size}
+                                      </p>
+                                    </div>
+                                    <div className="flex gap-1">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => togglePreview(fileKey, file.path)}
+                                        className="h-7 w-7 px-0"
+                                      >
+                                        <Eye className="h-3 w-3" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleDownload(file.path, `${file.name}.csv`)}
+                                        className="h-7 w-7 px-0"
+                                      >
+                                        <Download className="h-3 w-3" />
+                                      </Button>
+                                    </div>
                                   </div>
-                                  <div className="flex gap-1">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => togglePreview(fileKey, file.path)}
-                                      className="h-7 w-7 px-0"
-                                    >
-                                      <Eye className="h-3 w-3" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => handleDownload(file.path, `${file.name}.csv`)}
-                                      className="h-7 w-7 px-0"
-                                    >
-                                      <Download className="h-3 w-3" />
-                                    </Button>
-                                  </div>
-                                </div>
 
-                                {/* Preview Table */}
-                                <AnimatePresence>
-                                  {expandedPreviews.has(fileKey) && (
-                                    <motion.div
-                                      initial={{ height: 0, opacity: 0 }}
-                                      animate={{ height: 'auto', opacity: 1 }}
-                                      exit={{ height: 0, opacity: 0 }}
-                                      className="bg-muted/30 rounded-lg p-3 text-xs"
-                                    >
-                                      {previewData[fileKey] ? (
-                                        previewData[fileKey][0]?.error ? (
-                                          <p className="text-red-500 text-center text-xs">
-                                            {previewData[fileKey][0].error}
-                                          </p>
-                                        ) : (
-                                          <div className="overflow-x-auto">
-                                            <table className="w-full text-xs">
-                                              <thead>
-                                                <tr className="border-b border-border">
-                                                  {Object.keys(previewData[fileKey][0] || {}).map((header) => (
-                                                    <th key={header} className="text-left p-1 font-medium">
-                                                      {header}
-                                                    </th>
-                                                  ))}
-                                                </tr>
-                                              </thead>
-                                              <tbody>
-                                                {previewData[fileKey].slice(0, 5).map((row, idx) => (
-                                                  <tr key={idx} className="border-b border-border/50">
-                                                    {Object.values(row).map((value, colIdx) => (
-                                                      <td key={colIdx} className="p-1 truncate max-w-20">
-                                                        {String(value)}
-                                                      </td>
+                                  {/* Preview Table */}
+                                  <AnimatePresence>
+                                    {expandedPreviews.has(fileKey) && (
+                                      <motion.div
+                                        initial={{ height: 0, opacity: 0 }}
+                                        animate={{ height: 'auto', opacity: 1 }}
+                                        exit={{ height: 0, opacity: 0 }}
+                                        className="bg-muted/30 rounded-lg p-3 text-xs"
+                                      >
+                                        {previewData[fileKey] ? (
+                                          previewData[fileKey][0]?.error ? (
+                                            <p className="text-red-500 text-center text-xs">
+                                              {previewData[fileKey][0].error}
+                                            </p>
+                                          ) : (
+                                            <div className="overflow-x-auto">
+                                              <table className="w-full text-xs">
+                                                <thead>
+                                                  <tr className="border-b border-border">
+                                                    {Object.keys(previewData[fileKey][0] || {}).map((header) => (
+                                                      <th key={header} className="text-left p-1 font-medium">
+                                                        {header}
+                                                      </th>
                                                     ))}
                                                   </tr>
-                                                ))}
-                                              </tbody>
-                                            </table>
-                                            <p className="text-muted-foreground mt-2 text-center">
-                                              Showing first 5 rows
+                                                </thead>
+                                                <tbody>
+                                                  {previewData[fileKey].slice(0, 5).map((row, idx) => (
+                                                    <tr key={idx} className="border-b border-border/50">
+                                                      {Object.values(row).map((value, colIdx) => (
+                                                        <td key={colIdx} className="p-1 truncate max-w-20">
+                                                          {String(value)}
+                                                        </td>
+                                                      ))}
+                                                    </tr>
+                                                  ))}
+                                                </tbody>
+                                              </table>
+                                              <p className="text-muted-foreground mt-2 text-center">
+                                                Showing first 5 rows
+                                              </p>
+                                            </div>
+                                          )
+                                        ) : (
+                                          <div className="flex items-center justify-center py-4">
+                                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                            <p className="text-muted-foreground text-xs">
+                                              Loading preview...
                                             </p>
                                           </div>
-                                        )
-                                      ) : (
-                                        <div className="flex items-center justify-center py-4">
-                                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                          <p className="text-muted-foreground text-xs">
-                                            Loading preview...
-                                          </p>
-                                        </div>
-                                      )}
-                                    </motion.div>
-                                  )}
-                                </AnimatePresence>
-                              </div>
-                            );
-                          })}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </Card>
-                ))
+                                        )}
+                                      </motion.div>
+                                    )}
+                                  </AnimatePresence>
+                                </div>
+                              );
+                            })}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </Card>
+                  );
+                })
               )}
             </div>
           </motion.div>

@@ -8,10 +8,19 @@ import { FileSidebar } from "@/components/FileSidebar";
 
 export default function Home() {
   const [isFileSidebarOpen, setIsFileSidebarOpen] = useState(false);
+  const [hasNewFiles, setHasNewFiles] = useState(false);
+
+  const handleFileSidebarOpen = () => {
+    setIsFileSidebarOpen(true);
+    setHasNewFiles(false); // Clear notification when sidebar opens
+  };
 
   return (
     <div className="min-h-screen bg-background">
-      <Header onMenuClick={() => setIsFileSidebarOpen(true)} />
+      <Header
+        onMenuClick={handleFileSidebarOpen}
+        hasNewFiles={hasNewFiles}
+      />
       <main>
         <div className="container mx-auto px-6 py-12 space-y-12">
           <div className="text-center space-y-4 mb-12">
@@ -25,7 +34,7 @@ export default function Home() {
           </div>
 
           <PipelineVisualization />
-          <SimulationWorkspace />
+          <SimulationWorkspace onSimulationComplete={() => setHasNewFiles(true)} />
         </div>
       </main>
       <FileSidebar

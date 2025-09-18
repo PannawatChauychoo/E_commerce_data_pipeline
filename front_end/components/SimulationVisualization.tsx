@@ -207,7 +207,11 @@ function calculateEvenYAxis(data: any[], dataKey: string, tickCount: number = 5)
 }
 
 /* ---------- Component ---------- */
-export default function SimulationWorkspace() {
+interface SimulationWorkspaceProps {
+  onSimulationComplete?: () => void;
+}
+
+export default function SimulationWorkspace({ onSimulationComplete }: SimulationWorkspaceProps) {
   /* Inputs (left panel) */
   const [inputs, setInputs] = useState<SimInputs>({
     max_steps: 7,
@@ -599,7 +603,12 @@ export default function SimulationWorkspace() {
           if (finished || gotAll || error) {
             clearTimers();
             setRunning(false);
-            if (error) setErrorMsg(error);
+            if (error) {
+              setErrorMsg(error);
+            } else {
+              // Simulation completed successfully - trigger notification
+              onSimulationComplete?.();
+            }
           }
         } catch (err: any) {
           console.error("Polling error:", err);
@@ -616,7 +625,7 @@ export default function SimulationWorkspace() {
   };
 
   /* ---------- UI ---------- */
-  const inputClass = "bg-input border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-0";
+  const inputClass = "bg-input border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-0";
 
   const chartColors = useMemo(() => getChartColors(isDark), [isDark]);
 
@@ -683,7 +692,7 @@ export default function SimulationWorkspace() {
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <Label className="text-sm font-medium text-foreground">Type 1 Customers</Label>
-                <span className="text-sm font-medium text-primary">{inputs.n_customers1}</span>
+                <span className="text-sm font-medium text-white">{inputs.n_customers1}</span>
               </div>
               <Slider
                 value={[inputs.n_customers1]}
@@ -703,7 +712,7 @@ export default function SimulationWorkspace() {
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <Label className="text-sm font-medium text-foreground">Type 2 Customers</Label>
-                <span className="text-sm font-medium text-primary">{inputs.n_customers2}</span>
+                <span className="text-sm font-medium text-white">{inputs.n_customers2}</span>
               </div>
               <Slider
                 value={[inputs.n_customers2]}
@@ -723,7 +732,7 @@ export default function SimulationWorkspace() {
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <Label className="text-sm font-medium text-foreground">Products Per Category</Label>
-                <span className="text-sm font-medium text-primary">{inputs.n_products_per_category}</span>
+                <span className="text-sm font-medium text-white">{inputs.n_products_per_category}</span>
               </div>
               <Slider
                 value={[inputs.n_products_per_category]}
