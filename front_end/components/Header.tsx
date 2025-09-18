@@ -9,9 +9,10 @@ import { Button } from './ui/button';
 interface HeaderProps {
   onMenuClick?: () => void;
   hasNewFiles?: boolean;
+  isFileSidebarOpen?: boolean;
 }
 
-const Header = ({ onMenuClick, hasNewFiles }: HeaderProps) => {
+const Header = ({ onMenuClick, hasNewFiles, isFileSidebarOpen }: HeaderProps) => {
   const pathname = usePathname();
 
   const navItems = [
@@ -57,15 +58,17 @@ const Header = ({ onMenuClick, hasNewFiles }: HeaderProps) => {
             variant="ghost"
             size="sm"
             onClick={onMenuClick}
-            className={`h-9 w-9 px-0 relative transition-all duration-300 ${
-              hasNewFiles
-                ? 'shadow-lg shadow-orange-400/50 ring-2 ring-orange-300/30'
+            className={`h-9 w-9 px-0 relative transition-all duration-300 ${hasNewFiles
+              ? 'ring-2 ring-orange-300/30'
+              : ''
+              } ${isFileSidebarOpen
+                ? 'bg-accent text-accent-foreground'
                 : ''
-            }`}
+              }`}
           >
             <Download className="h-4 w-4" />
             {hasNewFiles && (
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-600 rounded-full" />
             )}
             <span className="sr-only">Download files</span>
           </Button>

@@ -20,6 +20,7 @@ export default function Home() {
       <Header
         onMenuClick={handleFileSidebarOpen}
         hasNewFiles={hasNewFiles}
+        isFileSidebarOpen={isFileSidebarOpen}
       />
       <main>
         <div className="container mx-auto px-6 py-12 space-y-12">
