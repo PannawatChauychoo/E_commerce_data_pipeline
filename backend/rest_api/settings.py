@@ -46,7 +46,18 @@ SECRET_KEY = "django-insecure-y7k@o+%51pcs9!^zzs0ub9rxa#b&c009*r5p_#v@sy8177md_4
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "True").lower() == "true"
 
+# Base allowed hosts from environment
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+
+# Always add Railway's healthcheck domain for production
+# Also detect Railway deployment environment
+if os.getenv("DATABASE_URL") or os.getenv("RAILWAY_ENVIRONMENT"):
+    ALLOWED_HOSTS.extend([
+        "healthcheck.railway.app",
+        ".railway.app",  # Allow all Railway subdomains
+    ])
+    # Force production settings for Railway
+    DEBUG = False
 
 
 # Application definition

@@ -11,6 +11,8 @@ from typing import Any, Dict, List
 
 from django.db.models import Case, DecimalField, F, Sum, When, Count, Avg
 from django.http import Http404, JsonResponse, HttpResponse, FileResponse
+import zipfile
+import io
 from django.utils import timezone
 from django.db import connection
 from helper.save_load import load_agents_from_newest, save_agents
@@ -543,4 +545,59 @@ class FileDownloadView(APIView):
         except Exception as e:
             return JsonResponse({
                 'error': f'Failed to download file: {str(e)}'
+            }, status=500)
+
+
+class BulkDownloadView(APIView):
+    """
+    GET /api/files/bulk-download/<str:run_id>/ -> Download all CSV files in a run as zip
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request, run_id: str):
+        try:
+            data_source_path = Path(__file__).resolve().parent.parent.parent / 'data_pipeline' / 'data_source' / 'agm_output'
+
+            # Find the run folder that contains files with this run_id
+            run_folder = None
+            for folder in data_source_path.iterdir():
+                if folder.is_dir() and folder.name.startswith('run_time='):
+                    # Check if any CSV files in this folder have the run_id
+                    csv_files = list(folder.glob(f'id={run_id}_*.csv'))
+                    if csv_files:
+                        run_folder = folder
+                        break
+
+            if not run_folder:
+                return JsonResponse({'error': 'Run not found'}, status=404)
+
+            # Find all CSV files for this run_id
+            csv_files = list(run_folder.glob(f'id={run_id}_*.csv'))
+            if not csv_files:
+                return JsonResponse({'error': 'No CSV files found for this run'}, status=404)
+
+            # Create zip file in memory
+            zip_buffer = io.BytesIO()
+
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                # Add each CSV file to zip
+                for csv_file in csv_files:
+                    # Use a cleaner filename in the zip (remove the id= prefix)
+                    clean_name = csv_file.name.replace(f'id={run_id}_', '')
+                    zip_file.write(csv_file, clean_name)
+
+            zip_buffer.seek(0)
+
+            # Create response with zip file
+            response = HttpResponse(
+                zip_buffer.getvalue(),
+                content_type='application/zip'
+            )
+            response['Content-Disposition'] = f'attachment; filename="simulation_{run_id}.zip"'
+
+            return response
+
+        except Exception as e:
+            return JsonResponse({
+                'error': f'Failed to create zip file: {str(e)}'
             }, status=500)

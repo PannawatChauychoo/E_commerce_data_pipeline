@@ -1,7 +1,7 @@
 import os
 from django.urls import path
 
-from .views import (ContinuityCheckView, RunProgressView, SimulationPreviewView, StartSimulationView, FileListView, FileDownloadView)
+from .views import (ContinuityCheckView, RunProgressView, SimulationPreviewView, StartSimulationView, FileListView, FileDownloadView, BulkDownloadView)
 
 # Cache-only URLs (simulation endpoints that work without database)
 cache_only_urls = [
@@ -11,6 +11,7 @@ cache_only_urls = [
     path("simulate/<str:run_id>", RunProgressView.as_view(), name="simulate-progress"),
     path("files/list/", FileListView.as_view(), name="files-list"),
     path("files/download/<path:file_path>/", FileDownloadView.as_view(), name="files-download"),
+    path("files/bulk-download/<str:run_id>/", BulkDownloadView.as_view(), name="files-bulk-download"),
 ]
 
 # Database-dependent URLs (only enabled when database is available)
