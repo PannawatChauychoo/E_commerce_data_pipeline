@@ -606,8 +606,9 @@ export default function SimulationWorkspace({ onSimulationComplete }: Simulation
             if (error) {
               setErrorMsg(error);
             } else {
-              // Simulation completed successfully - trigger notification
+              // Simulation completed successfully - trigger notification and re-check continuation
               onSimulationComplete?.();
+              checkCanContinue(); // Re-check if we can continue after completion
             }
           }
         } catch (err: any) {
