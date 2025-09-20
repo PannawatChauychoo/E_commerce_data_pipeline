@@ -1,0 +1,41 @@
+cat_id,parent_id,level,cat_name,path
+1,-,1,Food & Beverages,Food & Beverages
+1-1,1,2,Fresh Food,Food & Beverages > Fresh Food
+1-1-1,1-1,3,Produce,Food & Beverages > Fresh Food > Produce
+1-1-2,1-1,3,Meat & Seafood,Food & Beverages > Fresh Food > Meat & Seafood
+1-1-3,1-1,3,Dairy & Eggs,Food & Beverages > Fresh Food > Dairy & Eggs
+1-1-4,1-1,3,Bakery,Food & Beverages > Fresh Food > Bakery
+1-2,1,2,Packaged Food,Food & Beverages > Packaged Food
+1-2-1,1-2,3,Pantry,Food & Beverages > Packaged Food > Pantry
+1-2-2,1-2,3,Snacks,Food & Beverages > Packaged Food > Snacks
+1-2-3,1-2,3,Beverages,Food & Beverages > Packaged Food > Beverages
+1-2-4,1-2,3,Prepared Foods,Food & Beverages > Packaged Food > Prepared Foods
+2,-,1,Home & Living,Home & Living
+2-1,2,2,Home,Home & Living > Home
+2-2,2,2,Home Improvement,Home & Living > Home Improvement
+2-3,2,2,Household Essentials,Home & Living > Household Essentials
+2-4,2,2,Patio & Garden,Home & Living > Patio & Garden
+2-5,2,2,"Arts, Crafts & Sewing","Home & Living > Arts, Crafts & Sewing"
+3,-,1,Health & Beauty,Health & Beauty
+3-1,3,2,Beauty,Health & Beauty > Beauty
+3-2,3,2,Premium Beauty,Health & Beauty > Premium Beauty
+3-3,3,2,Personal Care,Health & Beauty > Personal Care
+3-4,3,2,Health and Medicine,Health & Beauty > Health and Medicine
+4,-,1,Fashion,Fashion
+4-1,4,2,Clothing,Fashion > Clothing
+4-2,4,2,Jewelry,Fashion > Jewelry
+4-3,4,2,Fashion Accessories,Fashion > Fashion Accessories
+5,-,1,Electronics,Electronics
+5-1,5,2,Electronic Accessories,Electronics > Electronic Accessories
+6,-,1,Toys & Entertainment,Toys & Entertainment
+6-1,6,2,Toys,Toys & Entertainment > Toys
+6-2,6,2,Collectibles,Toys & Entertainment > Collectibles
+6-3,6,2,Party & Occasions,Toys & Entertainment > Party & Occasions
+7,-,1,Special Categories,Special Categories
+7-1,7,2,Baby,Special Categories > Baby
+7-2,7,2,Pets,Special Categories > Pets
+7-3,7,2,Auto & Tires,Special Categories > Auto & Tires
+7-4,7,2,Seasonal,Special Categories > Seasonal
+7-5,7,2,Shop with Purpose,Special Categories > Shop with Purpose
+7-6,7,2,Subscriptions,Special Categories > Subscriptions
+7-7,7,2,Sports & Outdoors,Special Categories > Sports & Outdoors

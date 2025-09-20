@@ -261,7 +261,12 @@ class RunProgressView(APIView):
         with RUN_LOCK:
             st = RUNS.get(run_id)
             if not st:
-                raise Http404("Run not found")
+                # Handle container restart gracefully - assume simulation finished
+                return JsonResponse({
+                    "data": [],
+                    "finished": True,
+                    "error": "Simulation interrupted by server restart. Please start a new simulation."
+                })
             data = [d for d in st.steps if d["step"] > since]
             finished = st.status in ("finished", "error")
             resp = {"data": data, "finished": finished}

@@ -1,0 +1,41 @@
+source_table,raw_category_label,cat_id
+Surrogate,Food & Beverages,1
+Surrogate,Fresh Food,1-1
+Customer,Produce,1-1-1
+Customer,Meat & Seafood,1-1-2
+Customer,Dairy & Eggs,1-1-3
+Customer,Bakery,1-1-4
+Surrogate,Packaged Food,1-2
+Transaction,Pantry,1-2-1
+Customer,Snacks,1-2-2
+Customer,Beverages,1-2-3
+Customer,Prepared Foods,1-2-4
+Surrogate,Home & Living,2
+Product,Home,2-1
+Product,Home Improvement,2-2
+Product,Household Essentials,2-3
+Product,Patio & Garden,2-4
+Product,"Arts, Crafts & Sewing",2-5
+Surrogate,Health & Beauty,3
+Product,Beauty,3-1
+Product,Premium Beauty,3-2
+Product,Personal Care,3-3
+Product,Health and Medicine,3-4
+Surrogate,Fashion,4
+Product,Clothing,4-1
+Product,Jewelry,4-2
+Commerce,Fashion Accessories,4-3
+Product,Electronics,5
+Commerce,Electronic Accessories,5-1
+Surrogate,Toys & Entertainment,6
+Product,Toys,6-1
+Product,Collectibles,6-2
+Product,Party & Occasions,6-3
+Surrogate,Special Categories,7
+Product,Baby,7-1
+Product,Pets,7-2
+Product,Auto & Tires,7-3
+Product,Seasonal,7-4
+Product,Shop with Purpose,7-5
+Product,Subscriptions,7-6
+Product,Sports & Outdoors,7-7
