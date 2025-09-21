@@ -7,11 +7,7 @@
 instructions/
 
 # Python
-walmart_EDA/*
-!walmart_EDA/EDA_scripts/
-!walmart_EDA/EDA_scripts/** 
-!walmart_EDA/Model/
-!walmart_EDA/Model/** 
+walmart_EDA/Documentation/**
 *.pyc
 __pycache__/
 .ipynb_checkpoints/
