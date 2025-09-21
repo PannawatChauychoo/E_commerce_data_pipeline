@@ -7,8 +7,9 @@
 instructions/
 
 # Python
-walmart_EDA/Documentation/**
 *.pyc
+walmart_EDA/Documentation/**
+walmart_EDA/Data/**
 __pycache__/
 .ipynb_checkpoints/
 *.cfg
