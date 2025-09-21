@@ -137,15 +137,25 @@ def run_in_background(run_id: str, inputs: Dict[str, str | int]):
         if days <= 0:
             raise ValueError("max_steps must be > 0")
 
-        # Initialize WalmartModel with your existing parameters
-        model = WalmartModel(
-            start_date=inputs.get('start_date'),
-            max_steps=days,
-            n_customers1=inputs.get('n_customers1', 100),
-            n_customers2=inputs.get('n_customers2', 100),
-            n_products_per_category=inputs.get('n_products_per_category', 5),
-            mode='prod'
-        )
+        # Change to data_pipeline directory for WalmartModel (where data_source/ exists)
+        original_cwd = os.getcwd()
+        data_pipeline_path = os.path.join(ROOT, 'data_pipeline')
+        if os.path.exists(data_pipeline_path):
+            os.chdir(data_pipeline_path)
+
+        try:
+            # Initialize WalmartModel with your existing parameters
+            model = WalmartModel(
+                start_date=inputs.get('start_date'),
+                max_steps=days,
+                n_customers1=inputs.get('n_customers1', 100),
+                n_customers2=inputs.get('n_customers2', 100),
+                n_products_per_category=inputs.get('n_products_per_category', 5),
+                mode='prod'
+            )
+        finally:
+            # Always restore original working directory
+            os.chdir(original_cwd)
         
         # Use your existing agent loading logic
         loaded_file, loaded_id_dict, metadata = load_agents_from_newest(
