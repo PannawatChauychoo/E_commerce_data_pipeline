@@ -5,6 +5,7 @@ This module contains an agent-based model (ABM) simulation of a Walmart-like e-c
 ## Overview
 
 The simulation models:
+
 - Customers with budgets and product preferences
 - Products with prices, inventory levels, and categories
 - Purchase behaviors and inventory management
@@ -15,18 +16,8 @@ The simulation models:
 - `walmart_agents.py`: Contains the Customer and Product agent classes
 - `run_simulation.py`: Script to run the simulation and export data
 - `requirements.txt`: Dependencies for the simulation
+- `helper/`: Helper files from id_tracking to saving files
 
-## Installation
-
-1. Create a virtual environment (optional but recommended):
-   ```
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-2. Install dependencies:
-   ```
-   pip install -r requirements.txt
    ```
 
 ## Running the Simulation
@@ -38,9 +29,10 @@ python run_simulation.py
 ```
 
 This will:
-1. Run the simulation for 100 steps with 100 customers and 50 products
-2. Export the data to CSV files in the `../data_source/` directory
-3. Generate visualization plots in the `../data_source/` directory
+
+1. Run the simulation for 100 steps with 100 customers and 170 products
+2. Export the data to CSV files in the `../data_source/agm_output` directory
+3. Save agent states for continuation in the `../data_source/agm_agent_save` directory
 
 ## Customizing the Simulation
 
@@ -48,9 +40,11 @@ You can modify the simulation parameters in `run_simulation.py`:
 
 ```python
 model = run_simulation(
-    num_steps=100,      # Number of simulation steps
-    num_customers=100,  # Number of customer agents
-    num_products=50     # Number of product agents
+  start_date=20250101,  #YYYYMMDD format
+  num_steps=100,        # Number of simulation steps
+  num_customers=100,    # Number of customer agents
+  num_products=50       # Number of product agents
+    
 )
 ```
 
@@ -63,14 +57,6 @@ The simulation generates the following CSV files:
 - `Walmart_products.csv`: Product agent data
 - `Walmart_transactions.csv`: Transaction records
 
-## Visualization
-
-The simulation generates a visualization file `simulation_results.png` with four plots:
-1. Total Sales Over Time
-2. Customer Count Over Time
-3. Product Count Over Time
-4. Distribution of Customer Sales
-
 ## Extending the Model
 
 To extend the model, you can:
@@ -78,4 +64,4 @@ To extend the model, you can:
 1. Add new agent types in `walmart_agents.py`
 2. Modify agent behaviors in the `step()` methods
 3. Add new data collection metrics in `walmart_model.py`
-4. Create new visualizations in `run_simulation.py` 
+
