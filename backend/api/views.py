@@ -284,12 +284,22 @@ class RunProgressView(APIView):
         return JsonResponse({"ok": True})
 
 
+class HealthCheckView(APIView):
+    """
+    GET /api/health/ -> Simple health check (no file dependencies)
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        return JsonResponse({'status': 'healthy', 'service': 'walmart-simulation-api'})
+
+
 class ContinuityCheckView(APIView):
     """
     GET /api/simulate/can-continue/ -> Simple check if agm_output has files
     """
     permission_classes = [AllowAny]
-    
+
     def get(self, request):
         can_continue = check_agm_output_exists()
         return JsonResponse({'can_continue': can_continue})
