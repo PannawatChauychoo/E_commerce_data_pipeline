@@ -1,11 +1,9 @@
-# Node
-node_modules/
-build/
+# secrets
 .env
 .env.*
+.secrets/
 
 # Proprietary 
-data_source/
 instructions/
 
 # Python
@@ -19,16 +17,27 @@ __pycache__/
 .ipynb_checkpoints/
 *.cfg
 
+#UV env
+uv.lock 
+.venv
+
+# DBT 
+data_pipeline/dbt/target/
+data_pipeline/dbt/logs/
+data_pipeline/dbt/dbt_packages/
+data_pipeline/dbt/*.sh
+
 # OS / Editor
 .DS_Store
 .vscode/
 
 #Cursor rules 
-.cursor/rules
+.cursor
 *.mdc
 
+
 # dependencies
-/node_modules
+**/node_modules
 /.pnp
 .pnp.*
 .yarn/*
@@ -41,7 +50,8 @@ __pycache__/
 /coverage
 
 # next.js
-/.next/
+**/.next/
+**/.next/*
 /out/
 
 # production
@@ -68,10 +78,8 @@ yarn-error.log*
 next-env.d.ts
 
 #log files 
-*.log
+logs/*
+**/*.log
 
-#Executable
-*.sh
-
-#JSON files
-*.json
+# random output files
+data_pipeline/method/helper/id_seeds.json
