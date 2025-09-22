@@ -3,7 +3,7 @@
 
 [deploy]
 startCommand = "cd backend && gunicorn --workers 4 --bind 0.0.0.0:$PORT rest_api.wsgi:application"
-healthcheckPath = "/api/simulate/can-continue/"
+healthcheckPath = "/api/health/"
 healthcheckTimeout = 100
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 10
