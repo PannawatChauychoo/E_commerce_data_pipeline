@@ -179,8 +179,7 @@ class WalmartModel(Model):
                         for p in m.schedule.agents
                         if isinstance(p, ABMProduct) and p.stock == 0
                     ]
-                )
-                / len([a for a in m.schedule.agents if isinstance(a, ABMProduct)]),
+                ),
             }
         )
 

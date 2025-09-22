@@ -498,7 +498,14 @@ class Cust2(Serialization, Agent, CustBehavior):
         quantity = self.get_quantity()
         unit_price_preference = self.unit_price.resample(1)[0][0]
 
+        # Enhanced visit logic: prefer historical dates but allow some flexibility
+        visit_probability = 0.3  # Base probability for any day
         if date in visit_dates:
+            visit_probability = 0.8  # Higher probability for historical days
+
+        visit = 1 if random.random() < visit_probability else 0
+
+        if visit == 1:
             product_id, unit_price, quantity = self.make_purchase(
                 category_choice=choice,
                 cat_product_list=product_list,

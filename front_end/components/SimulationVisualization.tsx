@@ -152,15 +152,7 @@ const CustomLineTooltip = ({ active, payload, label }: any) => {
             style={{ backgroundColor: entry.color }}
           />
           <span className="text-gray-700">
-            {entry.name}: {(() => {
-              if (entry.name.includes('Stockout') || entry.name.includes('%')) {
-                // For stockout data, check if we're showing counts or percentages
-                return entry.name.includes('%')
-                  ? Number(entry.value).toFixed(2) // Percentage mode - 2 decimals
-                  : Math.round(entry.value); // Count mode - whole numbers
-              }
-              return Math.round(entry.value); // Other data - whole numbers
-            })()}
+            {entry.name}: {Math.round(entry.value)}
           </span>
         </div>
       ))}
@@ -268,17 +260,26 @@ export default function SimulationWorkspace({ onSimulationComplete }: Simulation
     }
   }, [inputs, running, series.length]);
 
-  /* Check if API is healthy and available */
+  /* Check if we can continue from previous simulation */
   const checkCanContinue = useCallback(async () => {
     try {
-      const response = await fetch(`${API_ORIGIN}/api/health/`, {
+      // First check if API is healthy
+      const healthResponse = await fetch(`${API_ORIGIN}/api/health/`, {
         credentials: 'include',
       });
-      const data = await response.json();
-      // Always set to false since we're starting fresh without initial data
-      setCanContinue(false);
+      if (!healthResponse.ok) {
+        setCanContinue(false);
+        return;
+      }
+
+      // Then check if previous simulation data exists
+      const continueResponse = await fetch(`${API_ORIGIN}/api/simulate/can-continue/`, {
+        credentials: 'include',
+      });
+      const continueData = await continueResponse.json();
+      setCanContinue(continueData.can_continue || false);
     } catch (error) {
-      console.error('Error checking API health:', error);
+      console.error('Error checking continuation:', error);
       setCanContinue(false);
     }
   }, []);
@@ -483,12 +484,32 @@ export default function SimulationWorkspace({ onSimulationComplete }: Simulation
         /* noop */
       }
     }
+
+    // Call the comprehensive reset endpoint to clear all temporary data
+    try {
+      const response = await fetch(`${API_ORIGIN}/api/reset/`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (response.ok) {
+        console.log('Successfully reset all temporary data');
+      } else {
+        console.warn('Failed to reset temporary data:', response.status);
+      }
+    } catch (error) {
+      console.error('Error calling reset endpoint:', error);
+    }
+
+    // Reset frontend state
     setRunId(null);
     setElapsed(0);
     setRunning(false);
     setSeries([]);
     setErrorMsg(null);
     setPreviewData([]);
+
+    // Update continuation state to reflect that there's no previous data
+    setCanContinue(false);
   }, [runId]);
 
   /* Cleanup on unmount */
@@ -788,10 +809,9 @@ export default function SimulationWorkspace({ onSimulationComplete }: Simulation
               <Button
                 onClick={reset}
                 variant="outline"
-                disabled={!running && series.length === 0 && previewData.length === 0}
                 className="w-full"
               >
-                Reset
+                Reset All
               </Button>
             </div>
           </CardContent>
@@ -964,10 +984,7 @@ export default function SimulationWorkspace({ onSimulationComplete }: Simulation
             <Card className="col-span-5 row-span-1 bg-card border-border flex flex-col">
               <CardHeader className="flex-shrink-0">
                 <CardTitle className="text-foreground">
-                  {(() => {
-                    const maxStockout = Math.max(...stockoutSeries.map(d => Number(d.value) || 0));
-                    return maxStockout < 10 ? "Number of Stockouts" : "Stockout Rate (%)";
-                  })()}
+                  Number of Stockouts
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex-1 min-h-0">
@@ -1003,10 +1020,7 @@ export default function SimulationWorkspace({ onSimulationComplete }: Simulation
                     <Line
                       type="monotone"
                       dataKey="value"
-                      name={(() => {
-                        const maxStockout = Math.max(...stockoutSeries.map(d => Number(d.value) || 0));
-                        return maxStockout < 10 ? "Stockouts" : "Stockout %";
-                      })()}
+                      name="Stockouts"
                       stroke={chartColors.primary}
                       strokeWidth={2.5}
                       dot={false}

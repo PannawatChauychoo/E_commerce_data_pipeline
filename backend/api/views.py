@@ -1,7 +1,8 @@
+#  type: ignore
 import gc
 import io
 import os
-import psutil
+import shutil
 import sys
 import threading
 import traceback
@@ -13,7 +14,8 @@ from pathlib import Path
 from threading import Lock
 from typing import Any, Dict, List
 
-from django.http import FileResponse, Http404, HttpResponse, JsonResponse
+import psutil
+from django.http import FileResponse, HttpResponse, JsonResponse
 from django.utils import timezone
 from helper.save_load import (load_agents_from_newest,  # pyright: ignore
                               save_agents)
@@ -22,7 +24,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from walmart_model import WalmartModel  # pyright: ignore
 
-from .models import Cust1, Cust2, Products, SimulationRun, Transactions
+from .models import Cust1, Cust2, Products, Transactions
 from .serialization import (Cust1Serializer, Cust2Serializer,
                             ProductSerializer, SimulationInputSerializer,
                             TransactionSerializer)
@@ -38,19 +40,27 @@ def get_memory_usage():
         process = psutil.Process(os.getpid())
         memory_info = process.memory_info()
         return {
-            'rss_mb': round(memory_info.rss / 1024 / 1024, 2),  # Physical memory
-            'vms_mb': round(memory_info.vms / 1024 / 1024, 2),  # Virtual memory
-            'percent': round(process.memory_percent(), 2),
-            'available_mb': round(psutil.virtual_memory().available / 1024 / 1024, 2)
+            "rss_mb": round(memory_info.rss / 1024 / 1024, 2),  # Physical memory
+            "vms_mb": round(memory_info.vms / 1024 / 1024, 2),  # Virtual memory
+            "percent": round(process.memory_percent(), 2),
+            "available_mb": round(psutil.virtual_memory().available / 1024 / 1024, 2),
         }
     except Exception as e:
-        return {'error': str(e), 'rss_mb': 0, 'vms_mb': 0, 'percent': 0, 'available_mb': 0}
+        return {
+            "error": str(e),
+            "rss_mb": 0,
+            "vms_mb": 0,
+            "percent": 0,
+            "available_mb": 0,
+        }
 
 
 def log_memory(context: str):
     """Log memory usage with context"""
     memory = get_memory_usage()
-    print(f"🧠 MEMORY [{context}]: {memory['rss_mb']}MB physical, {memory['percent']}% used, {memory['available_mb']}MB available")
+    print(
+        f"🧠 MEMORY [{context}]: {memory['rss_mb']}MB physical, {memory['percent']}% used, {memory['available_mb']}MB available"
+    )
     return memory
 
 
@@ -380,20 +390,83 @@ class MemoryDebugView(APIView):
         # Additional system info
         system_memory = psutil.virtual_memory()
 
-        return JsonResponse({
-            "current_process": memory,
-            "system_memory": {
-                "total_mb": round(system_memory.total / 1024 / 1024, 2),
-                "available_mb": round(system_memory.available / 1024 / 1024, 2),
-                "used_percent": round(system_memory.percent, 2)
-            },
-            "loaded_modules": len(sys.modules),
-            "active_runs": len(RUNS),
-            "gc_stats": {
-                "collections": gc.get_stats(),
-                "counts": gc.get_count()
+        return JsonResponse(
+            {
+                "current_process": memory,
+                "system_memory": {
+                    "total_mb": round(system_memory.total / 1024 / 1024, 2),
+                    "available_mb": round(system_memory.available / 1024 / 1024, 2),
+                    "used_percent": round(system_memory.percent, 2),
+                },
+                "loaded_modules": len(sys.modules),
+                "active_runs": len(RUNS),
+                "gc_stats": {"collections": gc.get_stats(), "counts": gc.get_count()},
             }
-        })
+        )
+
+
+class ResetSimulationView(APIView):
+    """
+    POST /api/reset/ -> Clear all simulation data and start fresh
+    """
+
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        try:
+            # Clear all active runs
+            with RUN_LOCK:
+                RUNS.clear()
+
+            # Clear agm_output directories
+            data_source_path = ROOT / "data_pipeline" / "data_source"
+
+            # Clear production output
+            agm_output_path = data_source_path / "agm_output"
+            if agm_output_path.exists():
+                shutil.rmtree(agm_output_path)
+                agm_output_path.mkdir(exist_ok=True)
+
+            # Clear test output
+            agm_output_test_path = data_source_path / "agm_output_test"
+            if agm_output_test_path.exists():
+                shutil.rmtree(agm_output_test_path)
+                agm_output_test_path.mkdir(exist_ok=True)
+
+            # Clear saved agent states
+            saved_agents_path = data_source_path / "agm_agent_save"
+            if saved_agents_path.exists():
+                shutil.rmtree(saved_agents_path)
+                saved_agents_path.mkdir(exist_ok=True)
+
+            # Clear the id tracking
+            id_tracker_path = (
+                ROOT / "data_pipeline" / "method" / "helper" / "id_seeds.json"
+            )
+            if id_tracker_path.exists():
+                os.remove(id_tracker_path)
+
+            # Force garbage collection
+            gc.collect()
+
+            log_memory("AFTER_RESET")
+
+            return JsonResponse(
+                {
+                    "success": True,
+                    "message": "All simulation data cleared successfully",
+                    "cleared": ["active_runs", "agm_output", "saved_agents"],
+                }
+            )
+
+        except Exception as e:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": f"Failed to reset simulation data: {str(e)}",
+                },
+                status=500,
+            )
 
 
 class ContinuityCheckView(APIView):
