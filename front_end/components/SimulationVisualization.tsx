@@ -268,16 +268,17 @@ export default function SimulationWorkspace({ onSimulationComplete }: Simulation
     }
   }, [inputs, running, series.length]);
 
-  /* Check if we can continue from previous simulation */
+  /* Check if API is healthy and available */
   const checkCanContinue = useCallback(async () => {
     try {
-      const response = await fetch(`${API_ORIGIN}/api/simulate/can-continue/`, {
+      const response = await fetch(`${API_ORIGIN}/api/health/`, {
         credentials: 'include',
       });
       const data = await response.json();
-      setCanContinue(data.can_continue);
+      // Always set to false since we're starting fresh without initial data
+      setCanContinue(false);
     } catch (error) {
-      console.error('Error checking continuation:', error);
+      console.error('Error checking API health:', error);
       setCanContinue(false);
     }
   }, []);

@@ -1,5 +1,8 @@
+import gc
 import io
 import os
+import psutil
+import sys
 import threading
 import traceback
 import uuid
@@ -26,6 +29,29 @@ from .serialization import (Cust1Serializer, Cust2Serializer,
 
 # Define ROOT - path to project root (parent of backend directory)
 ROOT = Path(__file__).resolve().parent.parent.parent
+
+
+# --- Memory Tracking Utilities ---
+def get_memory_usage():
+    """Get current memory usage in MB"""
+    try:
+        process = psutil.Process(os.getpid())
+        memory_info = process.memory_info()
+        return {
+            'rss_mb': round(memory_info.rss / 1024 / 1024, 2),  # Physical memory
+            'vms_mb': round(memory_info.vms / 1024 / 1024, 2),  # Virtual memory
+            'percent': round(process.memory_percent(), 2),
+            'available_mb': round(psutil.virtual_memory().available / 1024 / 1024, 2)
+        }
+    except Exception as e:
+        return {'error': str(e), 'rss_mb': 0, 'vms_mb': 0, 'percent': 0, 'available_mb': 0}
+
+
+def log_memory(context: str):
+    """Log memory usage with context"""
+    memory = get_memory_usage()
+    print(f"🧠 MEMORY [{context}]: {memory['rss_mb']}MB physical, {memory['percent']}% used, {memory['available_mb']}MB available")
+    return memory
 
 
 # --- Simple file-based helper functions (no database dependency)
@@ -147,6 +173,8 @@ def run_in_background(run_id: str, inputs: Dict[str, str | int]):
     Uses your existing WalmartModel logic - it already handles continuation automatically.
     """
     try:
+        log_memory("SIMULATION_START")
+
         days = int(inputs.get("max_steps", 0))
         if days <= 0:
             raise ValueError("max_steps must be > 0")
@@ -159,6 +187,7 @@ def run_in_background(run_id: str, inputs: Dict[str, str | int]):
 
         try:
             # Initialize WalmartModel with your existing parameters
+            log_memory("BEFORE_MODEL_INIT")
             model = WalmartModel(
                 start_date=inputs.get("start_date"),
                 max_steps=days,
@@ -167,11 +196,13 @@ def run_in_background(run_id: str, inputs: Dict[str, str | int]):
                 n_products_per_category=inputs.get("n_products_per_category", 5),
                 mode="prod",
             )
+            log_memory("AFTER_MODEL_INIT")
         finally:
             # Always restore original working directory
             os.chdir(original_cwd)
 
         # Use your existing agent loading logic
+        log_memory("BEFORE_AGENT_LOAD")
         loaded_file, loaded_id_dict, metadata = load_agents_from_newest(
             model, model.class_registry, mode="prod"
         )
@@ -183,6 +214,7 @@ def run_in_background(run_id: str, inputs: Dict[str, str | int]):
             print("No saved files - starting fresh simulation")
 
         model.initialize_extra_agents()
+        log_memory("AFTER_AGENT_INIT")
 
         with RUN_LOCK:
             st = RUNS.get(run_id)
@@ -194,6 +226,11 @@ def run_in_background(run_id: str, inputs: Dict[str, str | int]):
         for s in range(1, days + 1):
             metrics = model.step()
 
+            # Memory monitoring every 5 steps
+            if s % 5 == 0:
+                log_memory(f"STEP_{s}")
+                gc.collect()  # Force garbage collection
+
             with RUN_LOCK:
                 st = RUNS.get(run_id)
                 if not st or st.status == "stopped":
@@ -201,6 +238,8 @@ def run_in_background(run_id: str, inputs: Dict[str, str | int]):
                 if metrics is not None:
                     st.steps.append(metrics)
                 st.step = s
+
+        log_memory("BEFORE_SAVE")
 
         with RUN_LOCK:
             st = RUNS.get(run_id)
@@ -219,6 +258,13 @@ def run_in_background(run_id: str, inputs: Dict[str, str | int]):
         assert saved_file.exists() & metadata.exists(), print(
             "Can't find recently saved file"
         )
+
+        log_memory("SIMULATION_END")
+
+        # Final cleanup
+        del model
+        del result_df
+        gc.collect()
 
     except Exception as e:
         err = f"{e}\n{traceback.format_exc()}"
@@ -319,6 +365,35 @@ class HealthCheckView(APIView):
 
     def get(self, request):
         return JsonResponse({"status": "healthy", "service": "walmart-simulation-api"})
+
+
+class MemoryDebugView(APIView):
+    """
+    GET /api/memory/ -> Check current memory usage and system info
+    """
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        memory = get_memory_usage()
+
+        # Additional system info
+        system_memory = psutil.virtual_memory()
+
+        return JsonResponse({
+            "current_process": memory,
+            "system_memory": {
+                "total_mb": round(system_memory.total / 1024 / 1024, 2),
+                "available_mb": round(system_memory.available / 1024 / 1024, 2),
+                "used_percent": round(system_memory.percent, 2)
+            },
+            "loaded_modules": len(sys.modules),
+            "active_runs": len(RUNS),
+            "gc_stats": {
+                "collections": gc.get_stats(),
+                "counts": gc.get_count()
+            }
+        })
 
 
 class ContinuityCheckView(APIView):
