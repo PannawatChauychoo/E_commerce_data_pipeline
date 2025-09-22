@@ -642,7 +642,7 @@ def getting_segments_dist(
     - segments_num_dist: Dict mapping segment IDs to their numerical distributions (e.g. spending patterns)
     """
 
-    customer_segments_dist, col = dp.get_dataset_distribution(path)
+    customer_segments_dist = dp.get_dataset_distribution(path)
     segments_dist = {int(k): v[0] for k, v in customer_segments_dist.items()}
     segments_cat_dist = {int(k): v[1] for k, v in customer_segments_dist.items()}
     segments_num_dist = {int(k): v[2] for k, v in customer_segments_dist.items()}
