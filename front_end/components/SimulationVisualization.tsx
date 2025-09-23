@@ -184,9 +184,9 @@ function calculateEvenYAxis(data: any[], dataKey: string, tickCount: number = 5)
   const finalTick = Math.ceil(maxValue / step) * step;
   const paddedMax = Math.max(finalTick, maxValue * 1.1);
 
-  // Generate explicit tick array
-  const ticks = [];
-  for (let i = 0; i <= finalTick; i += step) {
+  // Generate explicit tick array, always starting with 0
+  const ticks = [0];
+  for (let i = step; i <= finalTick; i += step) {
     ticks.push(i);
   }
 
@@ -852,13 +852,13 @@ export default function SimulationWorkspace({ onSimulationComplete }: Simulation
                       tick={{ fill: chartColors.axis, fontSize: 11 }}
                       width={40}
                       {...(() => {
-                        const cust1Domain = calculateEvenYAxis(avgPurchasesSeries, 'cust1');
-                        const cust2Domain = calculateEvenYAxis(avgPurchasesSeries, 'cust2');
-                        const maxDomain = Math.max(cust1Domain.domain[1], cust2Domain.domain[1]);
-                        const allTicks = [...new Set([...cust1Domain.ticks, ...cust2Domain.ticks])].sort((a, b) => a - b);
+                        // Calculate domain based on max value from both cust1 and cust2
+                        const allValues = avgPurchasesSeries.flatMap(d => [Number(d.cust1) || 0, Number(d.cust2) || 0]);
+                        const maxValue = Math.max(...allValues);
+                        const { domain, ticks } = calculateEvenYAxis([{value: maxValue}], 'value');
                         return {
-                          domain: [0, maxDomain],
-                          ticks: allTicks.length > 0 ? allTicks : undefined
+                          domain,
+                          ticks: ticks.length > 0 ? ticks : undefined
                         };
                       })()}
                     />
