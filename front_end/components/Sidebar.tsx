@@ -40,7 +40,7 @@ const Sidebar = () => {
     },
     {
       icon: FileText,
-      label: 'Transactions',
+      label: 'ML Analytics',
       href: '/dashboard/transactions'
     },
     {
