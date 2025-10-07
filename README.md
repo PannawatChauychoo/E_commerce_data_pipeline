@@ -18,11 +18,12 @@ This project is a **portfolio showcase**, using the modern data engineering tech
 
 ## 🎥 Video Overview
 
-<p align="center">
-  <a href="https://www.loom.com/share/1b57f0984ae24b4a9449bb21785dcfd5?sid=caf8957c-79d0-4d8a-a5a4-c8c15c246795" target="_blank" rel="noopener noreferrer">
-    <img src="https://cdn.loom.com/sessions/thumbnails/1b57f0984ae24b4a9449bb21785dcfd5-with-play.gif" alt="Watch the project overview video on Loom" width="640" />
-  </a>
-</p>
+
+<div align="center">
+
+[![Watch the project overview video on Loom](https://cdn.loom.com/sessions/thumbnails/1b57f0984ae24b4a9449bb21785dcfd5-with-play.gif)](https://www.loom.com/share/1b57f0984ae24b4a9449bb21785dcfd5)
+
+</div>
 
 ---
 
